@@ -22,7 +22,7 @@ QEMU_EXTRA     ?=
 KERNEL_DEFAULT    ?= 6.6
 KERNEL_SUPPORTED  ?= 5.15 6.1 6.6
 KERNEL_IMAGE      ?= zImage
-KERNEL_DTB        ?= vexpress-v2p-ca9.dtb
+KERNEL_DTB        ?= arm/vexpress-v2p-ca9.dtb
 
 # Debug
 GDB_PORT       ?= 1234
