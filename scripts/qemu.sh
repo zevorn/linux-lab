@@ -8,7 +8,6 @@ source "$SCRIPT_DIR/cnb-detect.sh"
 ACTION="${1:?Usage: qemu.sh <build|rebuild|boot|boot-auto|debug|boot-test|export-patches>}"
 
 qemu_build() {
-    check_file "$QEMU_SRC/configure" "QEMU source not found. Run 'git submodule update --init src/qemu'"
     check_disk_space 3072 "$OUTPUT_DIR"
     setup_logging "qemu" "qemu-build"
 
@@ -16,26 +15,41 @@ qemu_build() {
     local qemu_install_dir="$OUTPUT_DIR/qemu"
     ensure_dir "$qemu_build_dir"
 
-    # QEMU uses meson wrap-git subprojects (keycodemapdb, berkeley-softfloat, etc.)
-    # These are fetched by meson during configure from URLs in .wrap files.
-    # First build from a clean checkout requires network access.
-    local kcm_dir="$QEMU_SRC/subprojects/keycodemapdb"
-    if [ ! -f "$kcm_dir/meson.build" ]; then
-        log_info "Fetching QEMU subproject: keycodemapdb (requires network)..."
-        local kcm_url kcm_rev
-        kcm_url=$(grep '^url' "$QEMU_SRC/subprojects/keycodemapdb.wrap" 2>/dev/null | sed 's/.*= *//')
-        kcm_rev=$(grep '^revision' "$QEMU_SRC/subprojects/keycodemapdb.wrap" 2>/dev/null | sed 's/.*= *//')
-        if [ -n "$kcm_url" ]; then
-            git clone --depth=1 "$kcm_url" "$kcm_dir" 2>/dev/null && \
-                (cd "$kcm_dir" && git fetch --depth=1 origin "$kcm_rev" && git checkout FETCH_HEAD) 2>/dev/null || \
-                log_warn "Could not fetch keycodemapdb; meson will retry during configure"
+    # Determine QEMU source: use official release tarball for reliable offline builds.
+    # The git submodule (src/qemu) is for secondary development; its meson wraps
+    # require network to fetch dependencies, making it unsuitable for clean offline builds.
+    # The official tarball bundles all subprojects (keycodemapdb, berkeley-softfloat, etc.)
+    local qemu_src_dir="$QEMU_SRC"
+    local qemu_version="${QEMU_VERSION:-9.2.0}"
+    local qemu_tarball="$SRC_DIR/qemu-${qemu_version}.tar.xz"
+    local qemu_tarball_dir="$SRC_DIR/qemu-${qemu_version}"
+
+    # If submodule source lacks meson subprojects, use release tarball instead
+    if [ ! -f "$qemu_src_dir/subprojects/keycodemapdb/meson.build" ]; then
+        if [ -d "$qemu_tarball_dir" ] && [ -f "$qemu_tarball_dir/configure" ]; then
+            log_info "Using cached QEMU release source: $qemu_tarball_dir"
+            qemu_src_dir="$qemu_tarball_dir"
+        else
+            log_info "Downloading QEMU $qemu_version release tarball (self-contained)..."
+            ensure_dir "$SRC_DIR"
+            local qemu_url="https://download.qemu.org/qemu-${qemu_version}.tar.xz"
+            if [ ! -f "$qemu_tarball" ]; then
+                wget --no-check-certificate -q --show-progress -O "$qemu_tarball" "$qemu_url" || \
+                    log_fatal "Failed to download QEMU tarball from $qemu_url"
+            fi
+            log_info "Extracting QEMU source..."
+            tar xf "$qemu_tarball" -C "$SRC_DIR"
+            rm -f "$qemu_tarball"
+            qemu_src_dir="$qemu_tarball_dir"
         fi
     fi
+
+    check_file "$qemu_src_dir/configure" "QEMU source not found"
 
     log_info "Configuring and building QEMU (this may take a while)..."
     (
         cd "$qemu_build_dir" || exit 1
-        run_logged "$QEMU_SRC/configure" \
+        run_logged "$qemu_src_dir/configure" \
             --prefix="$qemu_install_dir" \
             --target-list=arm-softmmu,riscv64-softmmu,x86_64-softmmu \
             --disable-werror \

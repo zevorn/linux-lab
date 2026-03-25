@@ -85,6 +85,8 @@ export ROOTFS_TYPE ROOTFS_PREBUILT ROOTFS_SRC ROOTFS_IMAGE ROOTFS_APPEND
 export ROOTFS_BUILDROOT_DEFCONFIG BUILDROOT_SRC
 export GDB_PORT GDB_ARCH
 export JOBS
+QEMU_VERSION ?= 9.2.0
+export QEMU_VERSION
 
 # ==============================================================================
 # Top-level targets
