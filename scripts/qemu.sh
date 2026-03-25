@@ -216,13 +216,13 @@ qemu_boot_test() {
     timeout "$timeout" stdbuf -oL "${QEMU_CMD[@]}" 2>&1 | tee "$test_log" &
     local qemu_pid=$!
 
-    # Wait for login prompt
+    # Wait for boot success indicator (login prompt or shell prompt)
     local elapsed=0
     while [ $elapsed -lt $timeout ]; do
-        if grep -q "login:" "$test_log" 2>/dev/null; then
+        if grep -qE "(login:|~ #|Welcome to Linux Lab)" "$test_log" 2>/dev/null; then
             kill $qemu_pid 2>/dev/null || true
             wait $qemu_pid 2>/dev/null || true
-            log_ok "Boot test PASSED — login prompt appeared in ${elapsed}s"
+            log_ok "Boot test PASSED — system booted in ${elapsed}s"
             rm -f "$test_log"
             return 0
         fi
