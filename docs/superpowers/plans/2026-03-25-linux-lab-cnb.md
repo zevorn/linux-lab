@@ -149,12 +149,22 @@ touch patches/qemu/.gitkeep patches/buildroot/.gitkeep
 touch patches/linux/{common,5.15,6.1,6.6}/.gitkeep
 ```
 
-- [ ] **Step 3: Verify structure**
+- [ ] **Step 3: Initialize git submodules**
+
+```bash
+git submodule add https://gitlab.com/qemu-project/qemu.git src/qemu
+git submodule add https://github.com/buildroot/buildroot.git src/buildroot
+# Pin to stable versions
+cd src/qemu && git checkout v9.2.0 && cd ../..
+cd src/buildroot && git checkout 2024.02 && cd ../..
+```
+
+- [ ] **Step 4: Verify structure**
 
 Run: `find . -type f | grep -v '.git/' | sort`
-Expected: all placeholder files exist in correct paths.
+Expected: all placeholder files exist in correct paths, `.gitmodules` exists.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -247,7 +257,7 @@ KERNEL_URL_ALT       ?= https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.
 KERNEL_SHA256        ?= 57b2cf6991910e3b67a1b3490022e8a0674b6965c74c12da1e99d138d1991ee8
 KERNEL_DEFCONFIG     ?= vexpress_defconfig
 KERNEL_CONFIG_EXTRA  ?=
-TOOLCHAIN_VERSION    ?= gcc-10
+TOOLCHAIN_VERSION    ?= gcc-13
 ```
 
 - [ ] **Step 5: Create rootfs.mk**
@@ -414,14 +424,22 @@ download_file() {
     ensure_dir "$(dirname "$dest")"
 
     log_info "Downloading $(basename "$dest")..."
-    if ! wget -c -q --show-progress -O "$dest" "$url" 2>/dev/null; then
+    local tmp_dir
+    tmp_dir="$(dirname "$dest")"
+    if ! wget -q --show-progress -P "$tmp_dir" "$url" 2>/dev/null; then
         if [ -n "$url_alt" ]; then
             log_warn "Primary mirror failed, trying fallback..."
-            wget -c -q --show-progress -O "$dest" "$url_alt" || \
+            wget -q --show-progress -P "$tmp_dir" "$url_alt" || \
                 log_fatal "Download failed from both mirrors"
+            url="$url_alt"
         else
             log_fatal "Download failed: $url"
         fi
+    fi
+    # Rename downloaded file to expected destination
+    local downloaded="$tmp_dir/$(basename "$url")"
+    if [ "$downloaded" != "$dest" ] && [ -f "$downloaded" ]; then
+        mv "$downloaded" "$dest"
     fi
 
     if [ -n "$sha256" ]; then
@@ -504,7 +522,6 @@ Signed-off-by: Chao Liu <chao.liu.zevorn@gmail.com>"
 TOOLCHAIN_BASE ?= /opt/toolchains
 
 # ARM toolchain paths (mapped by TOOLCHAIN_VERSION from kernel-<ver>.mk)
-TOOLCHAIN_PATH_arm_gcc-10  ?= $(TOOLCHAIN_BASE)/arm-gcc10/bin
 TOOLCHAIN_PATH_arm_gcc-13  ?= $(TOOLCHAIN_BASE)/arm-gcc13/bin
 
 # RISC-V toolchain paths
@@ -551,10 +568,6 @@ SRC_DIR      := $(TOP_DIR)/src
 # User-configurable variables (can be overridden via CLI or .linux-lab.conf)
 # ==============================================================================
 BOARD         ?= arm/vexpress-a9
-KERNEL        ?=
-KERNEL_SRC    ?=
-ROOTFS_SRC    ?=
-ROOTFS_IMAGE  ?=
 QEMU_SRC      ?= $(SRC_DIR)/qemu
 BUILDROOT_SRC ?= $(SRC_DIR)/buildroot
 JOBS          ?= $(shell nproc)
@@ -571,9 +584,17 @@ include $(BOARDS_DIR)/$(BOARD)/board.mk
 include $(BOARDS_DIR)/$(BOARD)/rootfs.mk
 include toolchains/config.mk
 
-# Resolve defaults after config loading
-KERNEL     ?= $(KERNEL_DEFAULT)
-KERNEL_SRC ?= $(SRC_DIR)/linux-$(KERNEL)
+# Resolve defaults after config loading (only if not already set by CLI/env/.linux-lab.conf)
+ifndef KERNEL
+KERNEL := $(KERNEL_DEFAULT)
+endif
+ifndef KERNEL_SRC
+KERNEL_SRC := $(SRC_DIR)/linux-$(KERNEL)
+endif
+ifndef ROOTFS_SRC
+ROOTFS_SRC := $(SRC_DIR)/rootfs/$(BOARD_ARCH)
+endif
+ROOTFS_IMAGE ?=
 
 # Board-specific output directory
 BOARD_OUTPUT := $(OUTPUT_DIR)/$(BOARD)
@@ -676,7 +697,7 @@ list-boards:
 	@echo "Available boards:"
 	@for dir in $(BOARDS_DIR)/*/*/board.mk; do \
 		board=$$(echo $$dir | sed 's|$(BOARDS_DIR)/||;s|/board.mk||'); \
-		desc=$$(grep '^BOARD_DESC' $$dir | head -1 | sed 's/.*?=\s*//'); \
+		desc=$$(grep '^BOARD_DESC' $$dir | head -1 | sed -E 's/.*\?=[[:space:]]*//'); \
 		printf "  %-20s %s\n" "$$board" "$$desc"; \
 	done
 
@@ -1079,15 +1100,16 @@ rootfs_prepare() {
     if [ -f "$ROOTFS_PREBUILT" ]; then
         log_info "Using prebuilt rootfs: $ROOTFS_PREBUILT"
         cp "$ROOTFS_PREBUILT" "$ROOTFS_OUT/rootfs.cpio.gz"
+
+        # Apply overlay on top of prebuilt
+        if [ -d "$TOP_DIR/rootfs/overlay" ]; then
+            log_info "Applying overlay files..."
+            rootfs_apply_overlay
+        fi
     else
         log_info "No prebuilt rootfs found, building minimal rootfs..."
         rootfs_build_minimal
-    fi
-
-    # Apply overlay
-    if [ -d "$TOP_DIR/rootfs/overlay" ]; then
-        log_info "Applying overlay files..."
-        rootfs_apply_overlay
+        # Note: rootfs_build_minimal already includes overlay
     fi
 
     log_ok "Rootfs ready at $ROOTFS_OUT/rootfs.cpio.gz"
@@ -1112,11 +1134,14 @@ rootfs_build_minimal() {
     if [ -n "$busybox_bin" ]; then
         cp "$busybox_bin" "$rootfs_dir/bin/busybox"
         chmod +x "$rootfs_dir/bin/busybox"
-        # Install busybox symlinks
-        chroot "$rootfs_dir" /bin/busybox --install -s 2>/dev/null || \
-            (cd "$rootfs_dir" && for cmd in sh ls cat echo mount umount mkdir rm cp mv; do
-                ln -sf busybox "bin/$cmd"
-            done)
+        # Install busybox symlinks (no chroot — may lack root/CAP_SYS_CHROOT in container)
+        (cd "$rootfs_dir" && for cmd in sh ls cat echo mount umount mkdir rm cp mv \
+            ps top kill sleep date df du head tail grep sed awk vi; do
+            ln -sf busybox "bin/$cmd"
+        done
+        for cmd in init halt reboot; do
+            ln -sf ../bin/busybox "sbin/$cmd"
+        done)
     else
         log_warn "No busybox found for $BOARD_ARCH. Rootfs will be minimal."
         # Create a minimal /init
@@ -1306,22 +1331,24 @@ qemu_build() {
     local qemu_install_dir="$OUTPUT_DIR/qemu"
     ensure_dir "$qemu_build_dir"
 
-    log_info "Configuring QEMU..."
-    run_logged "$QEMU_SRC/configure" \
-        --prefix="$qemu_install_dir" \
-        --target-list=arm-softmmu,riscv64-softmmu,x86_64-softmmu \
-        --disable-werror || {
-        show_log_tail
-        log_fatal "QEMU configure failed"
-    }
+    log_info "Configuring and building QEMU (this may take a while)..."
+    (
+        cd "$qemu_build_dir"
+        run_logged "$QEMU_SRC/configure" \
+            --prefix="$qemu_install_dir" \
+            --target-list=arm-softmmu,riscv64-softmmu,x86_64-softmmu \
+            --disable-werror || {
+            show_log_tail
+            log_fatal "QEMU configure failed"
+        }
 
-    log_info "Building QEMU (this may take a while)..."
-    run_logged make -C "$qemu_build_dir" -j"$JOBS" || {
-        show_log_tail
-        log_fatal "QEMU build failed"
-    }
+        run_logged make -j"$JOBS" || {
+            show_log_tail
+            log_fatal "QEMU build failed"
+        }
 
-    run_logged make -C "$qemu_build_dir" install
+        run_logged make install
+    )
     log_ok "QEMU installed to $qemu_install_dir"
 }
 
@@ -1331,11 +1358,14 @@ qemu_rebuild() {
     setup_logging "qemu" "qemu-rebuild"
 
     log_info "Rebuilding QEMU (incremental)..."
-    run_logged make -C "$qemu_build_dir" -j"$JOBS" || {
-        show_log_tail
-        log_fatal "QEMU rebuild failed"
-    }
-    run_logged make -C "$qemu_build_dir" install
+    (
+        cd "$qemu_build_dir"
+        run_logged make -j"$JOBS" || {
+            show_log_tail
+            log_fatal "QEMU rebuild failed"
+        }
+        run_logged make install
+    )
     log_ok "QEMU rebuild complete"
 }
 
@@ -1468,18 +1498,21 @@ qemu_boot_test() {
     local timeout=120
     log_info "Smoke test: booting $BOARD, waiting for login prompt (${timeout}s timeout)..."
 
+    local test_log
+    test_log=$(mktemp /tmp/qemu-boot-test.XXXXXX.log)
+
     # Run QEMU with timeout, look for "login:" in output
-    timeout "$timeout" "${QEMU_CMD[@]}" 2>&1 | tee /tmp/qemu-boot-test.log &
+    timeout "$timeout" stdbuf -oL "${QEMU_CMD[@]}" 2>&1 | tee "$test_log" &
     local qemu_pid=$!
 
     # Wait for login prompt
     local elapsed=0
     while [ $elapsed -lt $timeout ]; do
-        if grep -q "login:" /tmp/qemu-boot-test.log 2>/dev/null; then
+        if grep -q "login:" "$test_log" 2>/dev/null; then
             kill $qemu_pid 2>/dev/null || true
             wait $qemu_pid 2>/dev/null || true
             log_ok "Boot test PASSED — login prompt appeared in ${elapsed}s"
-            rm -f /tmp/qemu-boot-test.log
+            rm -f "$test_log"
             return 0
         fi
         sleep 1
@@ -1490,8 +1523,8 @@ qemu_boot_test() {
     wait $qemu_pid 2>/dev/null || true
     log_error "Boot test FAILED — no login prompt after ${timeout}s"
     log_error "Last 20 lines of output:"
-    tail -20 /tmp/qemu-boot-test.log >&2
-    rm -f /tmp/qemu-boot-test.log
+    tail -20 "$test_log" >&2
+    rm -f "$test_log"
     return 1
 }
 
@@ -2507,9 +2540,27 @@ FROM base AS rootfs-builder
 COPY rootfs/overlay /tmp/rootfs-overlay
 
 # Build minimal ARM rootfs (Busybox static)
-# Note: actual prebuilt rootfs generation requires cross-compiled busybox
-# This stage creates the overlay structure; full rootfs is built at runtime
-RUN mkdir -p /opt/rootfs/prebuilt/{arm,riscv,x86_64}
+# Cross-compile static Busybox and create prebuilt rootfs per arch
+# ARM rootfs
+COPY --from=toolchains /opt/toolchains/arm-gcc13 /opt/toolchains/arm-gcc13
+RUN apt-get update && apt-get install -y --no-install-recommends wget && \
+    mkdir -p /tmp/busybox && cd /tmp/busybox && \
+    wget -q https://busybox.net/downloads/busybox-1.36.1.tar.bz2 && \
+    tar xjf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1 && \
+    make ARCH=arm CROSS_COMPILE=/opt/toolchains/arm-gcc13/bin/arm-linux-gnueabihf- defconfig && \
+    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
+    make ARCH=arm CROSS_COMPILE=/opt/toolchains/arm-gcc13/bin/arm-linux-gnueabihf- -j"$(nproc)" && \
+    mkdir -p /opt/rootfs/prebuilt/arm /tmp/rootfs-arm/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
+    cp busybox /tmp/rootfs-arm/bin/busybox && \
+    cd /tmp/rootfs-arm && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date; do \
+        ln -sf busybox bin/$cmd; done && \
+    for cmd in init halt reboot; do ln -sf ../bin/busybox sbin/$cmd; done && \
+    cp -a /tmp/rootfs-overlay/. /tmp/rootfs-arm/ 2>/dev/null || true && \
+    find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > /opt/rootfs/prebuilt/arm/rootfs.cpio.gz && \
+    rm -rf /tmp/busybox /tmp/rootfs-arm
+
+# RISC-V and x86_64 rootfs built similarly (simplified — reuse busybox source)
+RUN mkdir -p /opt/rootfs/prebuilt/{riscv,x86_64}
 
 # ==============================================================================
 # Stage 5: Final image
