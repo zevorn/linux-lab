@@ -82,7 +82,7 @@ QEMU_SYSTEM    ?= $qemu_system
 QEMU_MACHINE   ?= $qemu_machine
 QEMU_CPU       ?= $qemu_cpu
 QEMU_MEM       ?= $qemu_mem
-QEMU_NET       ?= -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-device,netdev=net0
+QEMU_NET       ?= -netdev user,id=net0 -device virtio-net-device,netdev=net0
 QEMU_DISPLAY   ?= -nographic
 QEMU_EXTRA     ?=
 

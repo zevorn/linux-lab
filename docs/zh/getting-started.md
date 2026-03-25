@@ -37,7 +37,7 @@ make boot
 
 默认启动 ARM vexpress-a9 开发板 + Linux 6.6 内核。
 
-启动后你将看到 Linux 登录提示符，直接按回车即可登录（root 用户，无密码）。
+启动后你将看到欢迎信息和 shell 提示符（`~ #`），可以直接输入命令。预构建的最小 rootfs 直接进入 root shell，无需登录。
 
 退出 QEMU：按 `Ctrl-A` 然后按 `X`。
 

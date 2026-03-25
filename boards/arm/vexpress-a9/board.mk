@@ -14,7 +14,7 @@ QEMU_SYSTEM    ?= qemu-system-arm
 QEMU_MACHINE   ?= vexpress-a9
 QEMU_CPU       ?=
 QEMU_MEM       ?= 512M
-QEMU_NET       ?= -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-device,netdev=net0
+QEMU_NET       ?= -netdev user,id=net0 -device virtio-net-device,netdev=net0
 QEMU_DISPLAY   ?= -nographic
 QEMU_EXTRA     ?=
 

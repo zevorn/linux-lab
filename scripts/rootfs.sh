@@ -109,16 +109,23 @@ INIT_EOF
 rootfs_apply_overlay() {
     # Unpack existing cpio, overlay files, repack
     local rootfs_dir="$ROOTFS_WORK/rootfs-overlay"
+    rm -rf "$rootfs_dir"
     ensure_dir "$rootfs_dir"
 
-    # Unpack
-    (cd "$rootfs_dir" && zcat "$ROOTFS_OUT/rootfs.cpio.gz" | fakeroot cpio -idm 2>/dev/null)
+    # Unpack — use fakeroot to handle uid/gid 0 without real root
+    (cd "$rootfs_dir" && zcat "$ROOTFS_OUT/rootfs.cpio.gz" | fakeroot -- cpio -idm 2>/dev/null) || {
+        # Fallback: unpack without ownership preservation
+        rm -rf "$rootfs_dir"
+        ensure_dir "$rootfs_dir"
+        (cd "$rootfs_dir" && zcat "$ROOTFS_OUT/rootfs.cpio.gz" | cpio -idm --no-preserve-owner 2>/dev/null) || true
+    }
 
     # Overlay
-    cp -a "$TOP_DIR/rootfs/overlay/." "$rootfs_dir/"
+    cp -a "$TOP_DIR/rootfs/overlay/." "$rootfs_dir/" 2>/dev/null || \
+        cp -r "$TOP_DIR/rootfs/overlay/." "$rootfs_dir/"
 
     # Repack
-    (cd "$rootfs_dir" && find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > "$ROOTFS_OUT/rootfs.cpio.gz")
+    (cd "$rootfs_dir" && find . | fakeroot -- cpio -o -H newc 2>/dev/null | gzip > "$ROOTFS_OUT/rootfs.cpio.gz")
 
     rm -rf "$rootfs_dir"
 }

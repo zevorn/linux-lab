@@ -207,24 +207,43 @@ qemu_boot_test() {
     qemu_assemble_cmd
 
     local timeout=120
-    log_info "Smoke test: booting $BOARD, waiting for login prompt (${timeout}s timeout)..."
+    log_info "Smoke test: booting $BOARD, waiting for shell ready (${timeout}s timeout)..."
 
     local test_log
     test_log=$(mktemp /tmp/qemu-boot-test.XXXXXX.log)
 
-    # Run QEMU with timeout, look for "login:" in output
+    # Run QEMU with timeout, detect boot completion
     timeout "$timeout" stdbuf -oL "${QEMU_CMD[@]}" 2>&1 | tee "$test_log" &
     local qemu_pid=$!
 
-    # Wait for boot success indicator (login prompt or shell prompt)
+    # Wait for boot success indicator (shell prompt or Kernel panic)
     local elapsed=0
     while [ $elapsed -lt $timeout ]; do
-        if grep -qE "(login:|~ #|Welcome to Linux Lab)" "$test_log" 2>/dev/null; then
+        # Check if QEMU process exited early (startup failure)
+        if ! kill -0 $qemu_pid 2>/dev/null; then
+            wait $qemu_pid 2>/dev/null || true
+            log_error "Boot test FAILED — QEMU exited unexpectedly"
+            log_error "Last 10 lines of output:"
+            tail -10 "$test_log" >&2
+            rm -f "$test_log"
+            return 1
+        fi
+        # Detect boot success: shell prompt indicates init completed
+        if grep -qE "(~ #|~ \\\$|/ #|Welcome to Linux Lab|login:)" "$test_log" 2>/dev/null; then
             kill $qemu_pid 2>/dev/null || true
             wait $qemu_pid 2>/dev/null || true
-            log_ok "Boot test PASSED — system booted in ${elapsed}s"
+            log_ok "Boot test PASSED — system ready in ${elapsed}s"
             rm -f "$test_log"
             return 0
+        fi
+        # Detect kernel panic (fast fail)
+        if grep -q "Kernel panic" "$test_log" 2>/dev/null; then
+            kill $qemu_pid 2>/dev/null || true
+            wait $qemu_pid 2>/dev/null || true
+            log_error "Boot test FAILED — Kernel panic detected"
+            tail -20 "$test_log" >&2
+            rm -f "$test_log"
+            return 1
         fi
         sleep 1
         elapsed=$((elapsed + 1))
@@ -232,7 +251,7 @@ qemu_boot_test() {
 
     kill $qemu_pid 2>/dev/null || true
     wait $qemu_pid 2>/dev/null || true
-    log_error "Boot test FAILED — no login prompt after ${timeout}s"
+    log_error "Boot test FAILED — system not ready after ${timeout}s"
     log_error "Last 20 lines of output:"
     tail -20 "$test_log" >&2
     rm -f "$test_log"

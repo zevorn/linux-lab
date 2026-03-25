@@ -11,7 +11,7 @@ QEMU_SYSTEM    ?= qemu-system-riscv64
 QEMU_MACHINE   ?= virt
 QEMU_CPU       ?=
 QEMU_MEM       ?= 512M
-QEMU_NET       ?= -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-device,netdev=net0
+QEMU_NET       ?= -netdev user,id=net0 -device virtio-net-device,netdev=net0
 QEMU_DISPLAY   ?= -nographic
 QEMU_EXTRA     ?=
 
