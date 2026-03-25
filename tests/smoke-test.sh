@@ -104,7 +104,7 @@ fi
 echo ""
 echo "--- Checksum verification (requires network) ---"
 CHECKSUM_TEST_DIR=$(mktemp -d /tmp/linux-lab-checksum-test.XXXXXX)
-if wget -q --spider "https://mirrors.tuna.tsinghua.edu.cn/kernel/v6.x/linux-6.6.tar.xz" 2>/dev/null; then
+if timeout 5 wget -q --spider "https://mirrors.tuna.tsinghua.edu.cn/kernel/v6.x/linux-6.6.tar.xz" 2>/dev/null; then
     # Positive test: download with correct checksum
     export SRC_DIR="$CHECKSUM_TEST_DIR" KERNEL_SRC="$CHECKSUM_TEST_DIR/linux-6.6"
     export KERNEL=6.6 KERNEL_GIT=0

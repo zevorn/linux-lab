@@ -16,12 +16,20 @@ qemu_build() {
     local qemu_install_dir="$OUTPUT_DIR/qemu"
     ensure_dir "$qemu_build_dir"
 
-    # Initialize QEMU's own git submodules (keycodemapdb, etc.)
-    # This is the canonical way to get subprojects from a clean checkout.
-    if [ -e "$QEMU_SRC/.git" ]; then
-        log_info "Initializing QEMU internal submodules..."
-        (cd "$QEMU_SRC" && git submodule update --init) || \
-            log_warn "Could not init QEMU submodules (meson will try wrap download as fallback)"
+    # QEMU uses meson wrap-git subprojects (keycodemapdb, berkeley-softfloat, etc.)
+    # These are fetched by meson during configure from URLs in .wrap files.
+    # First build from a clean checkout requires network access.
+    local kcm_dir="$QEMU_SRC/subprojects/keycodemapdb"
+    if [ ! -f "$kcm_dir/meson.build" ]; then
+        log_info "Fetching QEMU subproject: keycodemapdb (requires network)..."
+        local kcm_url kcm_rev
+        kcm_url=$(grep '^url' "$QEMU_SRC/subprojects/keycodemapdb.wrap" 2>/dev/null | sed 's/.*= *//')
+        kcm_rev=$(grep '^revision' "$QEMU_SRC/subprojects/keycodemapdb.wrap" 2>/dev/null | sed 's/.*= *//')
+        if [ -n "$kcm_url" ]; then
+            git clone --depth=1 "$kcm_url" "$kcm_dir" 2>/dev/null && \
+                (cd "$kcm_dir" && git fetch --depth=1 origin "$kcm_rev" && git checkout FETCH_HEAD) 2>/dev/null || \
+                log_warn "Could not fetch keycodemapdb; meson will retry during configure"
+        fi
     fi
 
     log_info "Configuring and building QEMU (this may take a while)..."

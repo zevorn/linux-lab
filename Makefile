@@ -6,7 +6,7 @@
 .PHONY: kernel-build kernel-rebuild kernel-clean kernel-saveconfig kernel-export-patches
 .PHONY: rootfs-prepare rootfs-build rootfs-rebuild rootfs-menuconfig rootfs-modules rootfs-clean
 .PHONY: qemu-build qemu-rebuild qemu-boot qemu-debug qemu-export-patches
-.PHONY: debug boot-test check-submodules
+.PHONY: debug boot-test check-submodules toolchain-check
 
 # ==============================================================================
 # Directory layout
@@ -269,6 +269,12 @@ qemu-debug:
 
 qemu-export-patches:
 	@$(SCRIPTS_DIR)/qemu.sh export-patches
+
+# ==============================================================================
+# Toolchain targets
+# ==============================================================================
+toolchain-check:
+	@$(SCRIPTS_DIR)/toolchain.sh check
 
 # ==============================================================================
 # Debug targets
