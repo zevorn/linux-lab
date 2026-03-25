@@ -75,10 +75,11 @@ rootfs_build_minimal() {
         chmod +x "$rootfs_dir/bin/busybox"
         # Install busybox symlinks (no chroot — may lack root/CAP_SYS_CHROOT in container)
         (cd "$rootfs_dir" && for cmd in sh ls cat echo mount umount mkdir rm cp mv \
-            ps top kill sleep date df du head tail grep sed awk vi; do
+            ps top kill sleep date df du head tail grep sed awk vi uname hostname id \
+            passwd whoami tr wc sort uniq find xargs; do
             ln -sf busybox "bin/$cmd"
         done
-        for cmd in init halt reboot; do
+        for cmd in init halt reboot getty login; do
             ln -sf ../bin/busybox "sbin/$cmd"
         done)
     else

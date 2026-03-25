@@ -89,12 +89,16 @@ for script in scripts/*.sh scripts/tui/*.sh tests/*.sh; do
 done
 
 echo ""
-echo "--- Boot test (requires QEMU + toolchain) ---"
-if command -v qemu-system-arm >/dev/null 2>&1 && command -v arm-linux-gnueabihf-gcc >/dev/null 2>&1; then
+echo "--- Boot test (requires QEMU + kernel image + rootfs) ---"
+BOOT_KERNEL="$TOP_DIR/output/arm/vexpress-a9/linux-6.6/arch/arm/boot/zImage"
+if command -v qemu-system-arm >/dev/null 2>&1 && [ -f "$BOOT_KERNEL" ]; then
     check "make boot-test BOARD=arm/vexpress-a9" \
         make -C "$TOP_DIR" boot-test BOARD=arm/vexpress-a9 KERNEL=6.6
+elif command -v qemu-system-arm >/dev/null 2>&1 && command -v arm-linux-gnueabihf-gcc >/dev/null 2>&1; then
+    check "make boot-test BOARD=arm/vexpress-a9 (full build)" \
+        make -C "$TOP_DIR" boot-test BOARD=arm/vexpress-a9 KERNEL=6.6
 else
-    echo "  SKIP: boot-test requires QEMU + ARM cross-compiler (run inside Docker image)"
+    echo "  SKIP: boot-test requires QEMU + (kernel image or ARM cross-compiler)"
 fi
 
 echo ""

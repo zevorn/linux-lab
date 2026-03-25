@@ -207,38 +207,44 @@ qemu_boot_test() {
     qemu_assemble_cmd
 
     local timeout=120
-    log_info "Smoke test: booting $BOARD, waiting for shell ready (${timeout}s timeout)..."
+    log_info "Smoke test: booting $BOARD, waiting for login prompt (${timeout}s timeout)..."
 
     local test_log
     test_log=$(mktemp /tmp/qemu-boot-test.XXXXXX.log)
 
-    # Run QEMU with timeout, detect boot completion
-    timeout "$timeout" stdbuf -oL "${QEMU_CMD[@]}" 2>&1 | tee "$test_log" &
+    # Run QEMU in its own process group, redirect to log file (no pipeline)
+    set -m
+    "${QEMU_CMD[@]}" > "$test_log" 2>&1 &
     local qemu_pid=$!
+    set +m
 
-    # Wait for boot success indicator (shell prompt or Kernel panic)
     local elapsed=0
     while [ $elapsed -lt $timeout ]; do
         # Check if QEMU process exited early (startup failure)
         if ! kill -0 $qemu_pid 2>/dev/null; then
             wait $qemu_pid 2>/dev/null || true
+            if grep -q "login:" "$test_log" 2>/dev/null; then
+                log_ok "Boot test PASSED — login prompt appeared in ${elapsed}s"
+                rm -f "$test_log"
+                return 0
+            fi
             log_error "Boot test FAILED — QEMU exited unexpectedly"
             log_error "Last 10 lines of output:"
             tail -10 "$test_log" >&2
             rm -f "$test_log"
             return 1
         fi
-        # Detect boot success: shell prompt indicates init completed
-        if grep -qE "(~ #|~ \\\$|/ #|Welcome to Linux Lab|login:)" "$test_log" 2>/dev/null; then
-            kill $qemu_pid 2>/dev/null || true
+        # Detect login prompt (the canonical boot-test success signal per plan)
+        if grep -q "login:" "$test_log" 2>/dev/null; then
+            kill -- -$qemu_pid 2>/dev/null || kill $qemu_pid 2>/dev/null || true
             wait $qemu_pid 2>/dev/null || true
-            log_ok "Boot test PASSED — system ready in ${elapsed}s"
+            log_ok "Boot test PASSED — login prompt appeared in ${elapsed}s"
             rm -f "$test_log"
             return 0
         fi
         # Detect kernel panic (fast fail)
         if grep -q "Kernel panic" "$test_log" 2>/dev/null; then
-            kill $qemu_pid 2>/dev/null || true
+            kill -- -$qemu_pid 2>/dev/null || kill $qemu_pid 2>/dev/null || true
             wait $qemu_pid 2>/dev/null || true
             log_error "Boot test FAILED — Kernel panic detected"
             tail -20 "$test_log" >&2
@@ -249,9 +255,9 @@ qemu_boot_test() {
         elapsed=$((elapsed + 1))
     done
 
-    kill $qemu_pid 2>/dev/null || true
+    kill -- -$qemu_pid 2>/dev/null || kill $qemu_pid 2>/dev/null || true
     wait $qemu_pid 2>/dev/null || true
-    log_error "Boot test FAILED — system not ready after ${timeout}s"
+    log_error "Boot test FAILED — no login prompt after ${timeout}s"
     log_error "Last 20 lines of output:"
     tail -20 "$test_log" >&2
     rm -f "$test_log"
@@ -265,11 +271,17 @@ qemu_export_patches() {
     local patch_dir="$PATCHES_DIR/qemu"
     ensure_dir "$patch_dir"
 
-    if [ -d "$QEMU_SRC/.git" ]; then
-        (cd "$QEMU_SRC" && git format-patch -o "$patch_dir" HEAD~1)
-        log_ok "QEMU patches exported to $patch_dir"
+    # Check for git repo (submodules use a .git file, not directory)
+    if [ -e "$QEMU_SRC/.git" ]; then
+        (cd "$QEMU_SRC" && git diff HEAD > "$patch_dir/local-changes.patch")
+        if [ -s "$patch_dir/local-changes.patch" ]; then
+            log_ok "QEMU patches exported to $patch_dir/local-changes.patch"
+        else
+            rm -f "$patch_dir/local-changes.patch"
+            log_info "No local QEMU changes to export"
+        fi
     else
-        log_warn "QEMU source is not a git repo"
+        log_warn "QEMU source is not a git repo. Run 'make check-submodules' first."
     fi
 }
 

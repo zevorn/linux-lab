@@ -94,9 +94,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget && \
     make ARCH=arm CROSS_COMPILE=/opt/toolchains/arm-gcc13/bin/arm-linux-gnueabihf- -j"$(nproc)" && \
     mkdir -p /opt/rootfs/prebuilt/arm /tmp/rootfs-arm/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
     cp busybox /tmp/rootfs-arm/bin/busybox && \
-    cd /tmp/rootfs-arm && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date; do \
+    cd /tmp/rootfs-arm && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date uname hostname id passwd whoami tr wc sort uniq find xargs; do \
         ln -sf busybox bin/$cmd; done && \
-    for cmd in init halt reboot; do ln -sf ../bin/busybox sbin/$cmd; done && \
+    for cmd in init halt reboot getty login; do ln -sf ../bin/busybox sbin/$cmd; done && \
     cp -a /tmp/rootfs-overlay/. /tmp/rootfs-arm/ 2>/dev/null || true && \
     find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > /opt/rootfs/prebuilt/arm/rootfs.cpio.gz && \
     rm -rf /tmp/busybox /tmp/rootfs-arm
@@ -112,9 +112,9 @@ RUN mkdir -p /tmp/busybox && cd /tmp/busybox && \
     make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux-gnu- -j"$(nproc)" && \
     mkdir -p /opt/rootfs/prebuilt/riscv /tmp/rootfs-riscv/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
     cp busybox /tmp/rootfs-riscv/bin/busybox && \
-    cd /tmp/rootfs-riscv && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date; do \
+    cd /tmp/rootfs-riscv && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date uname hostname id passwd whoami tr wc sort uniq find xargs; do \
         ln -sf busybox bin/$cmd; done && \
-    for cmd in init halt reboot; do ln -sf ../bin/busybox sbin/$cmd; done && \
+    for cmd in init halt reboot getty login; do ln -sf ../bin/busybox sbin/$cmd; done && \
     cp -a /tmp/rootfs-overlay/. /tmp/rootfs-riscv/ 2>/dev/null || true && \
     find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > /opt/rootfs/prebuilt/riscv/rootfs.cpio.gz && \
     rm -rf /tmp/busybox /tmp/rootfs-riscv
@@ -129,9 +129,9 @@ RUN mkdir -p /tmp/busybox && cd /tmp/busybox && \
     make -j"$(nproc)" && \
     mkdir -p /opt/rootfs/prebuilt/x86_64 /tmp/rootfs-x86/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
     cp busybox /tmp/rootfs-x86/bin/busybox && \
-    cd /tmp/rootfs-x86 && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date; do \
+    cd /tmp/rootfs-x86 && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date uname hostname id passwd whoami tr wc sort uniq find xargs; do \
         ln -sf busybox bin/$cmd; done && \
-    for cmd in init halt reboot; do ln -sf ../bin/busybox sbin/$cmd; done && \
+    for cmd in init halt reboot getty login; do ln -sf ../bin/busybox sbin/$cmd; done && \
     cp -a /tmp/rootfs-overlay/. /tmp/rootfs-x86/ 2>/dev/null || true && \
     find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > /opt/rootfs/prebuilt/x86_64/rootfs.cpio.gz && \
     rm -rf /tmp/busybox /tmp/rootfs-x86

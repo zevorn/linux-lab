@@ -176,9 +176,14 @@ kernel_export_patches() {
     local patch_dir="$PATCHES_DIR/linux/$KERNEL"
     ensure_dir "$patch_dir"
 
-    if [ -d "$KERNEL_SRC/.git" ]; then
-        (cd "$KERNEL_SRC" && git format-patch -o "$patch_dir" HEAD~1)
-        log_ok "Patches exported to $patch_dir"
+    if [ -e "$KERNEL_SRC/.git" ]; then
+        (cd "$KERNEL_SRC" && git diff HEAD > "$patch_dir/local-changes.patch")
+        if [ -s "$patch_dir/local-changes.patch" ]; then
+            log_ok "Kernel patches exported to $patch_dir/local-changes.patch"
+        else
+            rm -f "$patch_dir/local-changes.patch"
+            log_info "No local kernel changes to export"
+        fi
     else
         log_warn "Kernel source is not a git repo. Use KERNEL_GIT=1 for git-based workflow."
     fi
