@@ -55,9 +55,14 @@ RUN /tmp/qemu-src/configure \
 FROM base AS toolchains
 
 # ARM toolchain (Bootlin, glibc)
+# Bootlin prefix is arm-buildroot-linux-gnueabihf-; create symlinks for arm-linux-gnueabihf-
 RUN mkdir -p /opt/toolchains/arm-gcc13 \
     && wget -q -O- "https://toolchains.bootlin.com/downloads/releases/toolchains/armv7-eabihf/tarballs/armv7-eabihf--glibc--stable-2024.05-1.tar.xz" \
-    | tar xJ -C /opt/toolchains/arm-gcc13 --strip-components=1
+    | tar xJ -C /opt/toolchains/arm-gcc13 --strip-components=1 \
+    && cd /opt/toolchains/arm-gcc13/bin \
+    && for f in arm-buildroot-linux-gnueabihf-*; do \
+        ln -sf "$f" "$(echo "$f" | sed 's/arm-buildroot-linux-gnueabihf-/arm-linux-gnueabihf-/')"; \
+    done
 
 # RISC-V toolchain (Bootlin, glibc, gcc-13)
 # Bootlin prefix is riscv64-buildroot-linux-gnu-; create symlinks for riscv64-linux-gnu-
