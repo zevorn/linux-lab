@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # TUI wizard for creating a new board configuration
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/utils.sh"

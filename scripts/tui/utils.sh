@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # TUI utility functions — dialog/whiptail wrappers
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../common.sh"

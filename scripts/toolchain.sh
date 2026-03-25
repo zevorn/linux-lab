@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Toolchain version resolution and wrapper management
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"

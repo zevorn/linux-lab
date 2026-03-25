@@ -28,3 +28,7 @@ main:
             - qemu-system-x86_64 --version
             # Verify dialog
             - dialog --version
+            # Setup prebuilt rootfs in workspace
+            - setup-rootfs.sh
+            # Smoke boot test (ARM)
+            - make boot-test BOARD=arm/vexpress-a9 KERNEL=6.6

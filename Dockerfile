@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Build QEMU (only target architectures we need)
 WORKDIR /tmp/qemu
-RUN wget -q "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
+RUN wget --no-check-certificate "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
     && tar xf "qemu-${QEMU_VERSION}.tar.xz" \
     && cd "qemu-${QEMU_VERSION}" \
     && ./configure \
@@ -58,16 +58,16 @@ RUN wget -q "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
 # ==============================================================================
 FROM base AS toolchains
 
-# ARM toolchain (Bootlin, glibc, gcc-13)
+# ARM toolchain (Bootlin, glibc)
 RUN mkdir -p /opt/toolchains/arm-gcc13 \
-    && wget -q -O- "https://toolchains.bootlin.com/downloads/releases/toolchains/armv7-eabihf/tarballs/armv7-eabihf--glibc--stable-2024.05-1.tar.bz2" \
-    | tar xj -C /opt/toolchains/arm-gcc13 --strip-components=1
+    && wget -q -O- "https://toolchains.bootlin.com/downloads/releases/toolchains/armv7-eabihf/tarballs/armv7-eabihf--glibc--stable-2024.05-1.tar.xz" \
+    | tar xJ -C /opt/toolchains/arm-gcc13 --strip-components=1
 
 # RISC-V toolchain (Bootlin, glibc, gcc-13)
 # Bootlin prefix is riscv64-buildroot-linux-gnu-; create symlinks for riscv64-linux-gnu-
 RUN mkdir -p /opt/toolchains/riscv-gcc13 \
-    && wget -q -O- "https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.05-1.tar.bz2" \
-    | tar xj -C /opt/toolchains/riscv-gcc13 --strip-components=1 \
+    && wget -q -O- "https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.05-1.tar.xz" \
+    | tar xJ -C /opt/toolchains/riscv-gcc13 --strip-components=1 \
     && cd /opt/toolchains/riscv-gcc13/bin \
     && for f in riscv64-buildroot-linux-gnu-*; do \
         ln -sf "$f" "$(echo "$f" | sed 's/riscv64-buildroot-linux-gnu-/riscv64-linux-gnu-/')"; \
@@ -89,7 +89,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget && \
     wget -q https://busybox.net/downloads/busybox-1.36.1.tar.bz2 && \
     tar xjf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1 && \
     make ARCH=arm CROSS_COMPILE=/opt/toolchains/arm-gcc13/bin/arm-linux-gnueabihf- defconfig && \
-    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
+    cat /tmp/busybox.config >> .config && \
+    make ARCH=arm CROSS_COMPILE=/opt/toolchains/arm-gcc13/bin/arm-linux-gnueabihf- olddefconfig && \
     make ARCH=arm CROSS_COMPILE=/opt/toolchains/arm-gcc13/bin/arm-linux-gnueabihf- -j"$(nproc)" && \
     mkdir -p /opt/rootfs/prebuilt/arm /tmp/rootfs-arm/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
     cp busybox /tmp/rootfs-arm/bin/busybox && \
@@ -106,7 +107,8 @@ RUN mkdir -p /tmp/busybox && cd /tmp/busybox && \
     wget -q https://busybox.net/downloads/busybox-1.36.1.tar.bz2 && \
     tar xjf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1 && \
     make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux-gnu- defconfig && \
-    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
+    cat /tmp/busybox.config >> .config && \
+    make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux-gnu- olddefconfig && \
     make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux-gnu- -j"$(nproc)" && \
     mkdir -p /opt/rootfs/prebuilt/riscv /tmp/rootfs-riscv/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
     cp busybox /tmp/rootfs-riscv/bin/busybox && \
@@ -122,7 +124,8 @@ RUN mkdir -p /tmp/busybox && cd /tmp/busybox && \
     wget -q https://busybox.net/downloads/busybox-1.36.1.tar.bz2 && \
     tar xjf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1 && \
     make defconfig && \
-    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
+    cat /tmp/busybox.config >> .config && \
+    make olddefconfig && \
     make -j"$(nproc)" && \
     mkdir -p /opt/rootfs/prebuilt/x86_64 /tmp/rootfs-x86/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
     cp busybox /tmp/rootfs-x86/bin/busybox && \

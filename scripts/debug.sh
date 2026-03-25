@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Launch GDB and connect to QEMU debug server
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"

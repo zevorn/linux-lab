@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Kernel source management: download, patch, config, build
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Rootfs management: prepare prebuilt, build via Buildroot, inject modules
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"

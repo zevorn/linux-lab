@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Welcome message for CNB Cloud IDE startup
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"

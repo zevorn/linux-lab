@@ -89,5 +89,14 @@ for script in scripts/*.sh scripts/tui/*.sh tests/*.sh; do
 done
 
 echo ""
+echo "--- Boot test (requires QEMU + toolchain) ---"
+if command -v qemu-system-arm >/dev/null 2>&1 && command -v arm-linux-gnueabihf-gcc >/dev/null 2>&1; then
+    check "make boot-test BOARD=arm/vexpress-a9" \
+        make -C "$TOP_DIR" boot-test BOARD=arm/vexpress-a9 KERNEL=6.6
+else
+    echo "  SKIP: boot-test requires QEMU + ARM cross-compiler (run inside Docker image)"
+fi
+
+echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

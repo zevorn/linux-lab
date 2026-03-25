@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # QEMU management: build, boot, debug, boot-test
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
@@ -149,6 +150,18 @@ qemu_boot_auto() {
     if [ ! -f "$rootfs_file" ]; then
         log_info "Rootfs not found, preparing..."
         "$SCRIPT_DIR/rootfs.sh" prepare
+    fi
+
+    # Auto-provision QEMU if not available
+    if [ -z "$QEMU_BIN" ] || [ ! -x "$QEMU_BIN" ]; then
+        if ! command -v "$QEMU_SYSTEM" >/dev/null 2>&1; then
+            log_info "QEMU not found, building from source..."
+            make -C "$TOP_DIR" check-submodules
+            "$SCRIPT_DIR/qemu.sh" build
+            # Re-resolve QEMU_BIN after build
+            QEMU_BIN="$OUTPUT_DIR/qemu/bin/$QEMU_SYSTEM"
+            export QEMU_BIN
+        fi
     fi
 
     # Boot

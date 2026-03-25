@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # TUI main menu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/utils.sh"
