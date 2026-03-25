@@ -270,12 +270,7 @@ ROOTFS_APPEND     := console=ttyAMA0 rdinit=/sbin/init
 
 ### Config Loading Order
 
-```makefile
-include boards/$(BOARD)/board.mk          # Board common
--include boards/$(BOARD)/kernel-$(KERNEL).mk  # Kernel version overrides
-include boards/$(BOARD)/rootfs.mk         # Rootfs config
--include .linux-lab.conf                  # User local (highest priority)
-```
+See "Variable Override Semantics" in Section 6 for the authoritative loading order. Summary: `.linux-lab.conf` is loaded **first** (`:=` assignment), then board `.mk` files use `?=` so they do not override user settings.
 
 ## 6. Makefile Framework
 
