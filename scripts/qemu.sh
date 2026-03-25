@@ -16,13 +16,27 @@ qemu_build() {
     local qemu_install_dir="$OUTPUT_DIR/qemu"
     ensure_dir "$qemu_build_dir"
 
+    # Ensure QEMU subprojects are available (keycodemapdb etc.)
+    local keycodemapdb="$QEMU_SRC/subprojects/keycodemapdb"
+    if [ -f "$QEMU_SRC/subprojects/keycodemapdb.wrap" ] && [ ! -f "$keycodemapdb/meson.build" ]; then
+        log_info "Fetching QEMU subproject: keycodemapdb..."
+        local kcm_url kcm_rev
+        kcm_url=$(grep '^url' "$QEMU_SRC/subprojects/keycodemapdb.wrap" | sed 's/.*= *//')
+        kcm_rev=$(grep '^revision' "$QEMU_SRC/subprojects/keycodemapdb.wrap" | sed 's/.*= *//')
+        git clone --depth=1 "$kcm_url" "$keycodemapdb" 2>/dev/null || true
+        if [ -n "$kcm_rev" ] && [ -d "$keycodemapdb/.git" ]; then
+            (cd "$keycodemapdb" && git fetch --depth=1 origin "$kcm_rev" && git checkout "$kcm_rev") 2>/dev/null || true
+        fi
+    fi
+
     log_info "Configuring and building QEMU (this may take a while)..."
     (
         cd "$qemu_build_dir" || exit 1
         run_logged "$QEMU_SRC/configure" \
             --prefix="$qemu_install_dir" \
             --target-list=arm-softmmu,riscv64-softmmu,x86_64-softmmu \
-            --disable-werror || {
+            --disable-werror \
+            --disable-libnfs || {
             show_log_tail
             log_fatal "QEMU configure failed"
         }
