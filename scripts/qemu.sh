@@ -119,6 +119,29 @@ qemu_pre_check() {
     return $ret
 }
 
+# Shared helper: ensure QEMU is available (resolve or build)
+qemu_ensure_available() {
+    # 1. Check user-built QEMU
+    if [ -n "$QEMU_BIN" ] && [ -x "$QEMU_BIN" ]; then
+        return 0
+    fi
+    # 2. Check system PATH
+    if command -v "$QEMU_SYSTEM" >/dev/null 2>&1; then
+        QEMU_BIN=$(command -v "$QEMU_SYSTEM")
+        export QEMU_BIN
+        return 0
+    fi
+    # 3. Build from source
+    log_info "QEMU not found, building from source..."
+    make -C "$TOP_DIR" check-submodules
+    "$SCRIPT_DIR/qemu.sh" build
+    QEMU_BIN="$OUTPUT_DIR/qemu/bin/$QEMU_SYSTEM"
+    export QEMU_BIN
+    if [ ! -x "$QEMU_BIN" ]; then
+        log_fatal "Failed to provision QEMU. Check 'make qemu-build' output."
+    fi
+}
+
 qemu_boot() {
     qemu_pre_check || log_fatal "Pre-boot check failed. Fix the issues above."
     qemu_assemble_cmd
@@ -130,41 +153,25 @@ qemu_boot() {
 }
 
 qemu_boot_auto() {
-    # Fully autonomous boot: auto-download, build, prepare, then boot
     local kernel_image="$KERNEL_OUT/arch/$BOARD_ARCH/boot/$KERNEL_IMAGE"
     local rootfs_file="$BOARD_OUTPUT/rootfs/rootfs.cpio.gz"
 
-    # Auto-download kernel if missing
     if [ ! -f "$KERNEL_SRC/Makefile" ]; then
         log_info "Kernel source not found, downloading linux-$KERNEL..."
         "$SCRIPT_DIR/kernel.sh" download
     fi
 
-    # Auto-build kernel if missing
     if [ ! -f "$kernel_image" ]; then
         log_info "Kernel image not found, building..."
         "$SCRIPT_DIR/kernel.sh" build
     fi
 
-    # Auto-prepare rootfs if missing
     if [ ! -f "$rootfs_file" ]; then
         log_info "Rootfs not found, preparing..."
         "$SCRIPT_DIR/rootfs.sh" prepare
     fi
 
-    # Auto-provision QEMU if not available
-    if [ -z "$QEMU_BIN" ] || [ ! -x "$QEMU_BIN" ]; then
-        if ! command -v "$QEMU_SYSTEM" >/dev/null 2>&1; then
-            log_info "QEMU not found, building from source..."
-            make -C "$TOP_DIR" check-submodules
-            "$SCRIPT_DIR/qemu.sh" build
-            # Re-resolve QEMU_BIN after build
-            QEMU_BIN="$OUTPUT_DIR/qemu/bin/$QEMU_SYSTEM"
-            export QEMU_BIN
-        fi
-    fi
-
-    # Boot
+    qemu_ensure_available
     qemu_boot
 }
 
@@ -183,13 +190,20 @@ qemu_debug() {
 }
 
 qemu_boot_test() {
-    # Smoke test: boot and wait for login prompt
-    qemu_pre_check || {
-        # Auto-prepare for CI
+    # Smoke test: auto-provision everything, then boot and wait for login prompt
+    local kernel_image="$KERNEL_OUT/arch/$BOARD_ARCH/boot/$KERNEL_IMAGE"
+    local rootfs_file="$BOARD_OUTPUT/rootfs/rootfs.cpio.gz"
+
+    if [ ! -f "$KERNEL_SRC/Makefile" ]; then
         "$SCRIPT_DIR/kernel.sh" download
+    fi
+    if [ ! -f "$kernel_image" ]; then
         "$SCRIPT_DIR/kernel.sh" build
+    fi
+    if [ ! -f "$rootfs_file" ]; then
         "$SCRIPT_DIR/rootfs.sh" prepare
-    }
+    fi
+    qemu_ensure_available
     qemu_assemble_cmd
 
     local timeout=120

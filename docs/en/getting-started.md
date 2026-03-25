@@ -31,8 +31,8 @@ This command automatically performs the following steps:
 
 1. Check kernel source — auto-download if missing
 2. Check kernel image — auto-build if missing
-3. Check rootfs — auto-prepare if missing
-4. Check QEMU — use Docker-provided version
+3. Check rootfs — auto-prepare if missing (uses repo prebuilt images)
+4. Check QEMU — use system/Docker-provided version, or auto-build from source
 5. Launch QEMU virtual machine
 
 By default, it boots the ARM vexpress-a9 board with Linux 6.6 kernel.
