@@ -11,7 +11,7 @@ A Docker + QEMU based Linux development platform running on CNB (Cloud Native Bu
 - **Configuration**: Declarative `.mk` files, board/kernel/rootfs separated
 - **User interaction**: Makefile CLI + dialog-based TUI (including board creation wizard)
 - **Initial architectures**: ARM (vexpress-a9) + RISC-V (virt) + x86_64
-- **Kernel versions**: Multiple LTS versions (5.15, 6.1, 6.6, 6.12)
+- **Kernel versions**: Multiple LTS versions (5.15, 6.1, 6.6)
 - **Rootfs**: Prebuilt cpio (Busybox) + optional Buildroot customization
 - **QEMU**: Built from source (supports secondary development), software emulation only
 - **Fully re-implemented**: Inspired by Taishan linux-lab, no code dependency
@@ -52,10 +52,10 @@ Resolve: ARCH, CROSS_COMPILE, KERNEL_VERSION, QEMU_ARGS, ROOTFS_TYPE
 
 | Constraint | Impact | Mitigation |
 |------------|--------|------------|
-| No KVM | QEMU software emulation only, slower | Sufficient for teaching/debugging |
+| No KVM | QEMU software emulation only, slower (x86_64-on-x86_64 TCG ~10-50x slower, expect 2-5min kernel boot) | Sufficient for teaching/debugging; document perf expectations per arch |
 | No privileged | Cannot mount loop devices | Default to cpio/initramfs format; use fakeroot |
 | No /dev/net/tun (possibly) | QEMU networking limited | User mode networking (`-netdev user`) |
-| Limited storage | Kernel source + build artifacts consume space | Provide `make clean` / `make distclean` |
+| Limited storage | Kernel source + build artifacts consume space | Provide `make clean` / `make distclean` / `make disk-usage`; pre-build space check warns when < 5GB free |
 | No Docker daemon | Cannot run nested containers | All tools installed directly in base image |
 
 ## 3. Project Structure
@@ -72,6 +72,7 @@ linux-lab/
 │   │   └── vexpress-a9/
 │   │       ├── board.mk
 │   │       ├── kernel-5.15.mk
+│   │       ├── kernel-6.1.mk
 │   │       ├── kernel-6.6.mk
 │   │       └── rootfs.mk
 │   ├── riscv/
@@ -83,6 +84,7 @@ linux-lab/
 │   └── x86_64/
 │       └── pc/
 │           ├── board.mk
+│           ├── kernel-6.1.mk
 │           ├── kernel-6.6.mk
 │           └── rootfs.mk
 ├── configs/                        # Kernel config fragments
@@ -128,7 +130,9 @@ linux-lab/
 │       ├── qemu_menu.sh
 │       └── utils.sh
 ├── output/                         # Build artifacts (gitignore)
-│   └── <board>/<kernel_version>/
+│   └── <board>/
+│       ├── <kernel_version>/       # Kernel build artifacts
+│       └── logs/                   # Build logs per target
 ├── docs/
 │   ├── zh/
 │   │   ├── getting-started.md
@@ -162,6 +166,32 @@ Multi-stage build, used as CNB Cloud IDE base image.
 | toolchains | Prebuilt cross-compilers (ARM: Bootlin/Linaro, RISC-V: Bootlin, x86_64: host gcc) | ~1-1.5GB |
 | rootfs | Buildroot source + prebuilt rootfs images | ~300MB |
 | **Total** | | **~2-2.5GB** |
+
+### QEMU Dual-Mode: Docker-built vs Source-built
+
+The Docker image ships a **stock QEMU** installed at `/usr/local/bin/` (compiled during image build from the pinned submodule version). This is the default QEMU used for all boards.
+
+For secondary development (e.g., adding custom board emulation), users rebuild QEMU from `src/qemu/` via `make qemu-build`, which installs to `output/qemu/bin/`. The system selects which QEMU to use:
+
+```makefile
+# If user-built QEMU exists, use it; otherwise fall back to Docker-provided
+QEMU_PREFIX ?= $(if $(wildcard $(OUTPUT_DIR)/qemu/bin/$(QEMU_SYSTEM)),$(OUTPUT_DIR)/qemu,/usr/local)
+```
+
+### Prebuilt Rootfs Strategy
+
+Prebuilt rootfs images (`rootfs/prebuilt/<arch>/rootfs.cpio.gz`) are generated during Docker image build via a dedicated Dockerfile stage:
+
+1. **Generation**: Cross-compile static Busybox + assemble minimal rootfs using `fakeroot` + `cpio` in the Docker build
+2. **Storage**: Baked into the Docker image layer at `/opt/rootfs/prebuilt/`; also committed to `rootfs/prebuilt/` in the repo via Git LFS (for non-Docker usage)
+3. **Update procedure**: Modify `rootfs/busybox.config` or overlay files → CNB Pipeline rebuilds image → new prebuilt images are available
+
+### Submodule Version Pinning
+
+| Submodule | Initial Version | Update Policy |
+|-----------|----------------|---------------|
+| QEMU | v9.2.x (latest stable) | Pin to stable releases, update when new board support is needed |
+| Buildroot | 2024.02.x LTS | Pin to LTS releases, update quarterly |
 
 ### Toolchain Coexistence Strategy
 
@@ -292,6 +322,7 @@ list-kernels            # List supported kernel versions for current board
 help                    # Show all targets
 clean                   # Clean current board artifacts
 distclean               # Clean everything + downloaded sources
+disk-usage              # Show disk usage breakdown (src/, output/, toolchains)
 
 # CI
 boot-test               # Smoke test: build + boot + verify login prompt + exit
@@ -312,9 +343,37 @@ QEMU_EXTRA  ?=                          # User-appended QEMU args
 
 Config priority: CLI args > env vars > `.linux-lab.conf` > board defaults.
 
+### Variable Override Semantics
+
+Board `.mk` files must use `?=` (conditional assignment) for all user-overridable variables. This allows CLI args and environment variables to take precedence naturally.
+
+For `.linux-lab.conf` to override board defaults, it is loaded **before** board configs:
+
+```makefile
+# Actual loading order in Makefile:
+-include .linux-lab.conf                      # User local overrides (sets vars first)
+include boards/$(BOARD)/board.mk              # Board common (?= won't override)
+-include boards/$(BOARD)/kernel-$(KERNEL).mk  # Kernel version (?= won't override)
+include boards/$(BOARD)/rootfs.mk             # Rootfs config (?= won't override)
+```
+
+This ensures: CLI `:=` > env vars > `.linux-lab.conf` `:=` > board `?=` defaults.
+
 ### Internal Structure
 
 Makefile handles config loading and target dispatch only. All logic lives in `scripts/*.sh`.
+
+### "boot" Target Behavior
+
+`make boot` is fully autonomous ("one-click" for teaching):
+
+1. Check kernel source → auto-trigger `kernel-download` if missing
+2. Check kernel image → auto-trigger `kernel-build` if missing
+3. Check rootfs → auto-trigger `rootfs-prepare` if missing
+4. Check QEMU → use Docker-provided or auto-trigger `qemu-build`
+5. Launch QEMU
+
+Each auto-triggered step prints a clear message (e.g., "Kernel source not found, downloading linux-6.6..."). `make qemu-boot` does NOT auto-download — it validates and fails fast with instructions.
 
 ## 7. TUI Design
 
@@ -372,13 +431,29 @@ TUI is a frontend to Makefile targets — all actions ultimately call `make xxx`
 ### Download Strategy
 
 ```bash
-# Default: tarball from kernel.org CDN (fast)
+# Default: tarball from mirror (fast)
 make kernel-download KERNEL=6.6
 # → src/linux-6.6/
 
 # Optional: git clone (when full history needed)
 make kernel-download KERNEL=6.6 KERNEL_GIT=1
 # → git clone --branch v6.6 --depth=1
+```
+
+### Network Resilience
+
+Downloads are subject to network conditions (especially in China). Mitigations:
+
+- **Mirror list**: Default to Chinese mirrors (e.g., `mirrors.tuna.tsinghua.edu.cn`), fallback to `cdn.kernel.org`
+- **Resume support**: Use `wget -c` for tarball downloads, `git clone` inherently resumable
+- **Checksum verification**: SHA256 checksums defined in `kernel-<ver>.mk`, verified after download
+- **Configurable mirror**: `KERNEL_MIRROR` variable in `.linux-lab.conf`
+
+```makefile
+# kernel-6.6.mk
+KERNEL_URL     := https://mirrors.tuna.tsinghua.edu.cn/kernel/v6.x/linux-6.6.tar.xz
+KERNEL_URL_ALT := https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.tar.xz
+KERNEL_SHA256  := <sha256sum>
 ```
 
 ### Out-of-Tree Build
@@ -436,8 +511,14 @@ make rootfs-modules MODULE_SRC=/path/to/my-driver  # External module
 
 ### Custom Rootfs Path
 
+`ROOTFS_SRC` points to a **directory** containing a rootfs image file. Expected naming: `rootfs.cpio.gz` (cpio mode) or `rootfs.ext4` (ext4 mode). Alternatively, set `ROOTFS_IMAGE` to point directly to an image file.
+
 ```bash
-make boot BOARD=arm/vexpress-a9 ROOTFS_SRC=/path/to/my-rootfs
+# Directory mode (looks for rootfs.cpio.gz inside)
+make boot BOARD=arm/vexpress-a9 ROOTFS_SRC=/path/to/my-rootfs/
+
+# Direct image file
+make boot BOARD=arm/vexpress-a9 ROOTFS_IMAGE=/path/to/my-rootfs.cpio.gz
 ```
 
 ## 10. QEMU Boot & Debug
@@ -513,6 +594,38 @@ ports:
 ### Welcome Script
 
 Runs on IDE startup, displays quick-start guide and environment status.
+
+### Workspace Persistence
+
+CNB Cloud IDE may use ephemeral storage by default. The `.ide.yaml` should map critical directories to persistent volumes:
+
+- `/workspace/src/` — downloaded kernel sources (expensive to re-download)
+- `/workspace/output/` — build artifacts (expensive to rebuild)
+
+If the CNB IDE does not support volume mapping, `scripts/welcome.sh` warns users about ephemeral storage and recommends `make distclean` awareness.
+
+### Submodule Auto-Initialization
+
+On first clone (without `--recurse-submodules`), `src/qemu/` and `src/buildroot/` will be empty. The Makefile includes a prerequisite check:
+
+```makefile
+check-submodules:
+	@if [ ! -f "$(QEMU_SRC)/configure" ]; then \
+		echo "Initializing submodules..."; \
+		git submodule update --init src/qemu src/buildroot; \
+	fi
+```
+
+Targets that depend on submodules (e.g., `qemu-build`) list `check-submodules` as a prerequisite.
+
+### Error Handling and Logging
+
+All `scripts/*.sh` follow a consistent error handling policy:
+
+- **Fail fast**: `set -euo pipefail` at the top of every script
+- **Log files**: Each operation logs full output to `output/<board>/logs/<target>-<timestamp>.log`
+- **Console output**: Summarized progress to stdout; on failure, print last 20 lines of log and the full log path
+- **No silent failures**: Every expected artifact is verified after creation
 
 ### Smoke Test
 
