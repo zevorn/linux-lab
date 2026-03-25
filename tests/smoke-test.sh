@@ -62,13 +62,18 @@ done
 echo ""
 echo "--- Script syntax (shellcheck) ---"
 if command -v shellcheck >/dev/null 2>&1; then
-    for script in scripts/*.sh scripts/tui/*.sh; do
-        [ -f "$script" ] || continue
-        check "shellcheck $script" shellcheck "$script"
-    done
+    check "shellcheck (all scripts, -x -S warning)" \
+        shellcheck -x -S warning scripts/*.sh scripts/tui/*.sh tests/*.sh
 else
-    echo "  SKIP: shellcheck not installed (install for full coverage)"
+    echo "  FAIL: shellcheck not installed — AC-9 requires it"
+    FAIL=$((FAIL + 1))
 fi
+
+echo ""
+echo "--- Submodule state ---"
+check ".gitmodules exists" test -f .gitmodules
+check "QEMU submodule configured" git config --file .gitmodules --get submodule.src/qemu.url
+check "Buildroot submodule configured" git config --file .gitmodules --get submodule.src/buildroot.url
 
 echo ""
 echo "--- Essential files exist ---"

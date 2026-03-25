@@ -17,7 +17,7 @@ qemu_build() {
 
     log_info "Configuring and building QEMU (this may take a while)..."
     (
-        cd "$qemu_build_dir"
+        cd "$qemu_build_dir" || exit 1
         run_logged "$QEMU_SRC/configure" \
             --prefix="$qemu_install_dir" \
             --target-list=arm-softmmu,riscv64-softmmu,x86_64-softmmu \
@@ -43,7 +43,7 @@ qemu_rebuild() {
 
     log_info "Rebuilding QEMU (incremental)..."
     (
-        cd "$qemu_build_dir"
+        cd "$qemu_build_dir" || exit 1
         run_logged make -j"$JOBS" || {
             show_log_tail
             log_fatal "QEMU rebuild failed"

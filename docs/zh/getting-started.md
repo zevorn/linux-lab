@@ -101,8 +101,8 @@ TUI 主菜单包括：
 |------|------|
 | `make qemu-boot` | 仅启动 QEMU（跳过内核编译） |
 | `make qemu-debug` | 以 GDB 调试模式启动 QEMU |
-| `make qemu-build` | 从源码编译 QEMU（自动 clone 源码） |
-| `make check-submodules` | 按需 clone QEMU 和 Buildroot 源码 |
+| `make qemu-build` | 从源码编译 QEMU（需先初始化 submodule） |
+| `make check-submodules` | 初始化 QEMU 和 Buildroot git submodule |
 
 ### 环境
 

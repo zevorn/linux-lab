@@ -69,9 +69,8 @@ endif
 BOARD_OUTPUT := $(OUTPUT_DIR)/$(BOARD)
 KERNEL_OUT   := $(BOARD_OUTPUT)/linux-$(KERNEL)
 
-# QEMU binary: prefer user-built, fallback to system
-QEMU_PREFIX  ?= $(if $(wildcard $(OUTPUT_DIR)/qemu/bin/$(QEMU_SYSTEM)),$(OUTPUT_DIR)/qemu,/usr/local)
-QEMU_BIN     := $(QEMU_PREFIX)/bin/$(QEMU_SYSTEM)
+# QEMU binary: prefer user-built, then system PATH
+QEMU_BIN ?= $(if $(wildcard $(OUTPUT_DIR)/qemu/bin/$(QEMU_SYSTEM)),$(OUTPUT_DIR)/qemu/bin/$(QEMU_SYSTEM),$(shell command -v $(QEMU_SYSTEM) 2>/dev/null))
 
 # Export for scripts
 export TOP_DIR SCRIPTS_DIR BOARDS_DIR CONFIGS_DIR OUTPUT_DIR PREBUILT_DIR
@@ -189,26 +188,17 @@ clean:
 distclean: clean
 	@echo "Cleaning all build artifacts and downloaded sources..."
 	rm -rf $(OUTPUT_DIR) $(SRC_DIR)/linux-*
+	@echo "To deinitialize submodules: git submodule deinit -f src/qemu src/buildroot"
 	@echo "Done."
 
 # ==============================================================================
-# Source dependencies (on-demand clone, no submodules)
+# Submodule management (QEMU and Buildroot are git submodules)
 # ==============================================================================
-QEMU_REPO    ?= https://gitlab.com/qemu-project/qemu.git
-QEMU_TAG     ?= v9.2.0
-BUILDROOT_REPO ?= https://github.com/buildroot/buildroot.git
-BUILDROOT_TAG  ?= 2024.02
-
 check-submodules:
-	@if [ ! -f "$(QEMU_SRC)/configure" ]; then \
-		echo "QEMU source not found at $(QEMU_SRC)"; \
-		echo "Cloning QEMU $(QEMU_TAG)..."; \
-		git clone --branch $(QEMU_TAG) --depth=1 $(QEMU_REPO) $(QEMU_SRC); \
-	fi
-	@if [ ! -f "$(BUILDROOT_SRC)/Makefile" ]; then \
-		echo "Buildroot source not found at $(BUILDROOT_SRC)"; \
-		echo "Cloning Buildroot $(BUILDROOT_TAG)..."; \
-		git clone --branch $(BUILDROOT_TAG) --depth=1 $(BUILDROOT_REPO) $(BUILDROOT_SRC); \
+	@if [ ! -f "$(QEMU_SRC)/configure" ] || [ ! -f "$(BUILDROOT_SRC)/Makefile" ]; then \
+		echo "Initializing submodules (QEMU + Buildroot)..."; \
+		git submodule update --init --depth=1 src/qemu src/buildroot || \
+			{ echo "ERROR: Failed to initialize submodules. Run: git submodule update --init src/qemu src/buildroot"; exit 1; }; \
 	fi
 
 # ==============================================================================

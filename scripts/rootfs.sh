@@ -12,6 +12,9 @@ ROOTFS_WORK="$ROOTFS_OUT/work"
 rootfs_prepare() {
     ensure_dir "$ROOTFS_OUT"
 
+    # Priority: ROOTFS_IMAGE > ROOTFS_SRC directory > ROOTFS_PREBUILT > minimal fallback
+
+    # 1. Direct image file
     if [ -n "$ROOTFS_IMAGE" ] && [ -f "$ROOTFS_IMAGE" ]; then
         log_info "Using custom rootfs image: $ROOTFS_IMAGE"
         cp "$ROOTFS_IMAGE" "$ROOTFS_OUT/rootfs.cpio.gz"
@@ -19,19 +22,32 @@ rootfs_prepare() {
         return 0
     fi
 
+    # 2. ROOTFS_SRC directory mode (expects rootfs.cpio.gz inside)
+    if [ -n "$ROOTFS_SRC" ] && [ -d "$ROOTFS_SRC" ]; then
+        local src_image="$ROOTFS_SRC/rootfs.cpio.gz"
+        if [ -f "$src_image" ]; then
+            log_info "Using rootfs from ROOTFS_SRC: $src_image"
+            cp "$src_image" "$ROOTFS_OUT/rootfs.cpio.gz"
+            log_ok "Rootfs ready"
+            return 0
+        else
+            log_warn "ROOTFS_SRC=$ROOTFS_SRC exists but contains no rootfs.cpio.gz"
+        fi
+    fi
+
+    # 3. Prebuilt rootfs from repo
     if [ -f "$ROOTFS_PREBUILT" ]; then
         log_info "Using prebuilt rootfs: $ROOTFS_PREBUILT"
         cp "$ROOTFS_PREBUILT" "$ROOTFS_OUT/rootfs.cpio.gz"
 
-        # Apply overlay on top of prebuilt
         if [ -d "$TOP_DIR/rootfs/overlay" ]; then
             log_info "Applying overlay files..."
             rootfs_apply_overlay
         fi
     else
+        # 4. Minimal fallback
         log_info "No prebuilt rootfs found, building minimal rootfs..."
         rootfs_build_minimal
-        # Note: rootfs_build_minimal already includes overlay
     fi
 
     log_ok "Rootfs ready at $ROOTFS_OUT/rootfs.cpio.gz"

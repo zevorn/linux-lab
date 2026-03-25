@@ -76,7 +76,8 @@ download_file() {
         fi
     fi
     # Rename downloaded file to expected destination
-    local downloaded="$tmp_dir/$(basename "$url")"
+    local downloaded
+    downloaded="$tmp_dir/$(basename "$url")"
     if [ "$downloaded" != "$dest" ] && [ -f "$downloaded" ]; then
         mv "$downloaded" "$dest"
     fi

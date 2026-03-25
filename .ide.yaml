@@ -13,4 +13,4 @@ ports:
 lifecycle:
   postStart:
     exec:
-      command: ["/bin/bash", "-c", "/workspace/scripts/welcome.sh 2>/dev/null || true"]
+      command: ["/bin/bash", "-c", "setup-rootfs.sh 2>/dev/null; /workspace/scripts/welcome.sh 2>/dev/null || true"]

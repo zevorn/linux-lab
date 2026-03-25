@@ -25,7 +25,7 @@ toolchain_info() {
     else
         echo "  Path:          (not found — will search PATH)"
         if command -v "${CROSS_COMPILE}gcc" >/dev/null 2>&1; then
-            echo "  GCC version:   $(${CROSS_COMPILE}gcc --version | head -1)"
+            echo "  GCC version:   $("${CROSS_COMPILE}gcc" --version | head -1)"
         else
             log_warn "${CROSS_COMPILE}gcc not found in PATH"
         fi

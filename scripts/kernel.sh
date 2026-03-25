@@ -156,7 +156,8 @@ kernel_clean() {
 kernel_saveconfig() {
     check_file "$KERNEL_OUT/.config" "Run 'make kernel-config' first"
 
-    local fragment="$CONFIGS_DIR/${BOARD_ARCH}_$(echo "$BOARD_NAME" | tr '/' '_')_${KERNEL}.config"
+    local fragment
+    fragment="$CONFIGS_DIR/${BOARD_ARCH}_$(echo "$BOARD_NAME" | tr '/' '_')_${KERNEL}.config"
     ensure_dir "$CONFIGS_DIR"
 
     make -C "$KERNEL_SRC" O="$KERNEL_OUT" \

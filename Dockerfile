@@ -64,9 +64,14 @@ RUN mkdir -p /opt/toolchains/arm-gcc13 \
     | tar xj -C /opt/toolchains/arm-gcc13 --strip-components=1
 
 # RISC-V toolchain (Bootlin, glibc, gcc-13)
+# Bootlin prefix is riscv64-buildroot-linux-gnu-; create symlinks for riscv64-linux-gnu-
 RUN mkdir -p /opt/toolchains/riscv-gcc13 \
     && wget -q -O- "https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.05-1.tar.bz2" \
-    | tar xj -C /opt/toolchains/riscv-gcc13 --strip-components=1
+    | tar xj -C /opt/toolchains/riscv-gcc13 --strip-components=1 \
+    && cd /opt/toolchains/riscv-gcc13/bin \
+    && for f in riscv64-buildroot-linux-gnu-*; do \
+        ln -sf "$f" "$(echo "$f" | sed 's/riscv64-buildroot-linux-gnu-/riscv64-linux-gnu-/')"; \
+    done
 
 # ==============================================================================
 # Stage 4: Prebuilt rootfs
@@ -74,8 +79,8 @@ RUN mkdir -p /opt/toolchains/riscv-gcc13 \
 FROM base AS rootfs-builder
 
 COPY rootfs/overlay /tmp/rootfs-overlay
+COPY rootfs/busybox.config /tmp/busybox.config
 
-# Build minimal ARM rootfs (Busybox static)
 # Cross-compile static Busybox and create prebuilt rootfs per arch
 # ARM rootfs
 COPY --from=toolchains /opt/toolchains/arm-gcc13 /opt/toolchains/arm-gcc13
@@ -100,9 +105,9 @@ COPY --from=toolchains /opt/toolchains/riscv-gcc13 /opt/toolchains/riscv-gcc13
 RUN mkdir -p /tmp/busybox && cd /tmp/busybox && \
     wget -q https://busybox.net/downloads/busybox-1.36.1.tar.bz2 && \
     tar xjf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1 && \
-    make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux- defconfig && \
+    make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux-gnu- defconfig && \
     sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
-    make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux- -j"$(nproc)" && \
+    make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux-gnu- -j"$(nproc)" && \
     mkdir -p /opt/rootfs/prebuilt/riscv /tmp/rootfs-riscv/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
     cp busybox /tmp/rootfs-riscv/bin/busybox && \
     cd /tmp/rootfs-riscv && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date; do \
@@ -139,7 +144,7 @@ COPY --from=qemu-builder /tmp/qemu-install/usr/local /usr/local
 # Copy toolchains
 COPY --from=toolchains /opt/toolchains /opt/toolchains
 
-# Copy prebuilt rootfs
+# Copy prebuilt rootfs to both /opt (system) and workspace (runtime)
 COPY --from=rootfs-builder /opt/rootfs /opt/rootfs
 
 # Add toolchains to PATH
@@ -149,5 +154,17 @@ ENV PATH="/opt/toolchains/arm-gcc13/bin:/opt/toolchains/riscv-gcc13/bin:${PATH}"
 RUN qemu-system-arm --version && \
     qemu-system-riscv64 --version && \
     qemu-system-x86_64 --version
+
+# On startup, link prebuilt rootfs into the workspace if not already present
+RUN echo '#!/bin/sh' > /usr/local/bin/setup-rootfs.sh && \
+    echo 'for arch in arm riscv x86_64; do' >> /usr/local/bin/setup-rootfs.sh && \
+    echo '  src="/opt/rootfs/prebuilt/$arch/rootfs.cpio.gz"' >> /usr/local/bin/setup-rootfs.sh && \
+    echo '  dst="/workspace/rootfs/prebuilt/$arch/rootfs.cpio.gz"' >> /usr/local/bin/setup-rootfs.sh && \
+    echo '  if [ -f "$src" ] && [ ! -f "$dst" ]; then' >> /usr/local/bin/setup-rootfs.sh && \
+    echo '    mkdir -p "$(dirname "$dst")"' >> /usr/local/bin/setup-rootfs.sh && \
+    echo '    cp "$src" "$dst"' >> /usr/local/bin/setup-rootfs.sh && \
+    echo '  fi' >> /usr/local/bin/setup-rootfs.sh && \
+    echo 'done' >> /usr/local/bin/setup-rootfs.sh && \
+    chmod +x /usr/local/bin/setup-rootfs.sh
 
 WORKDIR /workspace
