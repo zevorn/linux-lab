@@ -10,3 +10,7 @@ ports:
   - port: 2222
     name: ssh
     description: QEMU guest SSH
+lifecycle:
+  postStart:
+    exec:
+      command: ["/bin/bash", "-c", "/workspace/scripts/welcome.sh 2>/dev/null || true"]

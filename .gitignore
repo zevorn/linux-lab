@@ -1,9 +1,8 @@
 .humanize/
 
-# Source code (downloaded on demand)
+# Source code (downloaded/cloned on demand)
 src/*
-!src/qemu/
-!src/buildroot/
+!src/.gitkeep
 
 # Build artifacts
 output/

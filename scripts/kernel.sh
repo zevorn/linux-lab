@@ -2,6 +2,7 @@
 # Kernel source management: download, patch, config, build
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/cnb-detect.sh"
 
 ACTION="${1:?Usage: kernel.sh <download|patch|config|menuconfig|build|rebuild|clean|saveconfig|export-patches>}"
 
@@ -11,6 +12,7 @@ kernel_download() {
         return 0
     fi
 
+    ensure_dir "$SRC_DIR"
     check_disk_space 2048 "$SRC_DIR"
 
     if [ "$KERNEL_GIT" = "1" ]; then

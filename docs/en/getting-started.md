@@ -101,7 +101,8 @@ Use arrow keys to navigate, Enter to select, ESC to go back.
 |---------|-------------|
 | `make qemu-boot` | Boot QEMU only (skip kernel build) |
 | `make qemu-debug` | Boot QEMU with GDB debug mode |
-| `make qemu-build` | Build QEMU from source |
+| `make qemu-build` | Build QEMU from source (auto-clones if needed) |
+| `make check-submodules` | Clone QEMU and Buildroot source on demand |
 
 ### Environment
 

@@ -52,6 +52,19 @@ ROOTFS_SRC := $(SRC_DIR)/rootfs/$(BOARD_ARCH)
 endif
 ROOTFS_IMAGE ?=
 
+# Validate kernel version is supported by board
+ifneq ($(MAKECMDGOALS),help)
+ifneq ($(MAKECMDGOALS),list-boards)
+ifneq ($(MAKECMDGOALS),)
+ifdef KERNEL_SUPPORTED
+ifeq ($(filter $(KERNEL),$(KERNEL_SUPPORTED)),)
+$(error Unsupported kernel version '$(KERNEL)' for board '$(BOARD)'. Supported: $(KERNEL_SUPPORTED))
+endif
+endif
+endif
+endif
+endif
+
 # Board-specific output directory
 BOARD_OUTPUT := $(OUTPUT_DIR)/$(BOARD)
 KERNEL_OUT   := $(BOARD_OUTPUT)/linux-$(KERNEL)
@@ -179,12 +192,23 @@ distclean: clean
 	@echo "Done."
 
 # ==============================================================================
-# Submodule check
+# Source dependencies (on-demand clone, no submodules)
 # ==============================================================================
+QEMU_REPO    ?= https://gitlab.com/qemu-project/qemu.git
+QEMU_TAG     ?= v9.2.0
+BUILDROOT_REPO ?= https://github.com/buildroot/buildroot.git
+BUILDROOT_TAG  ?= 2024.02
+
 check-submodules:
-	@if [ ! -f "$(QEMU_SRC)/configure" ] && [ -f .gitmodules ]; then \
-		echo "Initializing submodules..."; \
-		git submodule update --init src/qemu src/buildroot; \
+	@if [ ! -f "$(QEMU_SRC)/configure" ]; then \
+		echo "QEMU source not found at $(QEMU_SRC)"; \
+		echo "Cloning QEMU $(QEMU_TAG)..."; \
+		git clone --branch $(QEMU_TAG) --depth=1 $(QEMU_REPO) $(QEMU_SRC); \
+	fi
+	@if [ ! -f "$(BUILDROOT_SRC)/Makefile" ]; then \
+		echo "Buildroot source not found at $(BUILDROOT_SRC)"; \
+		echo "Cloning Buildroot $(BUILDROOT_TAG)..."; \
+		git clone --branch $(BUILDROOT_TAG) --depth=1 $(BUILDROOT_REPO) $(BUILDROOT_SRC); \
 	fi
 
 # ==============================================================================

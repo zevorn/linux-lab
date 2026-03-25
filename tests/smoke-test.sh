@@ -37,6 +37,29 @@ for board in arm/vexpress-a9 riscv/virt x86_64/pc; do
 done
 
 echo ""
+echo "--- Kernel version validation ---"
+check_fail() {
+    local desc="$1"
+    shift
+    if "$@" >/dev/null 2>&1; then
+        echo "  FAIL: $desc (expected failure but got success)"
+        FAIL=$((FAIL + 1))
+    else
+        echo "  PASS: $desc (correctly rejected)"
+        PASS=$((PASS + 1))
+    fi
+}
+check_fail "reject unsupported kernel KERNEL=9.9" make info BOARD=arm/vexpress-a9 KERNEL=9.9
+check_fail "reject nonexistent board" make info BOARD=nonexistent/board
+
+echo ""
+echo "--- Script syntax (bash -n) ---"
+for script in scripts/*.sh scripts/tui/*.sh; do
+    [ -f "$script" ] || continue
+    check "bash -n $script" bash -n "$script"
+done
+
+echo ""
 echo "--- Script syntax (shellcheck) ---"
 if command -v shellcheck >/dev/null 2>&1; then
     for script in scripts/*.sh scripts/tui/*.sh; do
@@ -44,8 +67,21 @@ if command -v shellcheck >/dev/null 2>&1; then
         check "shellcheck $script" shellcheck "$script"
     done
 else
-    echo "  SKIP: shellcheck not installed"
+    echo "  SKIP: shellcheck not installed (install for full coverage)"
 fi
+
+echo ""
+echo "--- Essential files exist ---"
+for f in Makefile Dockerfile .cnb.yml .ide.yaml rootfs/busybox.config src/.gitkeep; do
+    check "file exists: $f" test -f "$f"
+done
+
+echo ""
+echo "--- Script permissions ---"
+for script in scripts/*.sh scripts/tui/*.sh tests/*.sh; do
+    [ -f "$script" ] || continue
+    check "executable: $script" test -x "$script"
+done
 
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="

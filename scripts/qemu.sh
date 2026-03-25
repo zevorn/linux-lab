@@ -2,6 +2,7 @@
 # QEMU management: build, boot, debug, boot-test
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/cnb-detect.sh"
 
 ACTION="${1:?Usage: qemu.sh <build|rebuild|boot|boot-auto|debug|boot-test|export-patches>}"
 

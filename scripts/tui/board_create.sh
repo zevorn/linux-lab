@@ -9,6 +9,7 @@ declare -A ARCH_SERIAL=( [arm]="ttyAMA0" [riscv]="ttyS0" [x86_64]="ttyS0" )
 declare -A ARCH_QEMU_SYSTEM=( [arm]="qemu-system-arm" [riscv]="qemu-system-riscv64" [x86_64]="qemu-system-x86_64" )
 declare -A ARCH_CROSS=( [arm]="arm-linux-gnueabihf-" [riscv]="riscv64-linux-gnu-" [x86_64]="" )
 declare -A ARCH_GDB=( [arm]="arm" [riscv]="riscv:rv64" [x86_64]="i386:x86-64" )
+declare -A ARCH_BR_DEFCONFIG=( [arm]="qemu_arm_vexpress_defconfig" [riscv]="qemu_riscv64_virt_defconfig" [x86_64]="qemu_x86_64_defconfig" )
 
 create_board() {
     # Step 1: Architecture
@@ -40,12 +41,15 @@ create_board() {
     qemu_mem=$(tui_input "Memory" "512M") || return
 
     # Step 4: Kernel versions
-    local kernel_versions
-    kernel_versions=$(tui_checklist "Supported Kernel Versions" \
+    local kernel_versions_raw
+    kernel_versions_raw=$(tui_checklist "Supported Kernel Versions" \
         "6.6" "LTS 6.6" "on" \
         "6.1" "LTS 6.1" "on" \
         "5.15" "LTS 5.15" "off" \
     ) || return
+    # Normalize dialog output: strip quotes and normalize whitespace
+    local kernel_versions
+    kernel_versions=$(echo "$kernel_versions_raw" | tr -d '"' | tr -s ' ')
 
     # Step 5: Defconfig
     local defconfig
@@ -108,7 +112,7 @@ EOF
     cat > "$board_dir/rootfs.mk" << EOF
 ROOTFS_TYPE                ?= cpio
 ROOTFS_PREBUILT            ?= \$(PREBUILT_DIR)/$arch/rootfs.cpio.gz
-ROOTFS_BUILDROOT_DEFCONFIG ?= qemu_${arch}_defconfig
+ROOTFS_BUILDROOT_DEFCONFIG ?= ${ARCH_BR_DEFCONFIG[$arch]}
 ROOTFS_APPEND              ?= console=$serial rdinit=/sbin/init
 EOF
 

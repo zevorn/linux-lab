@@ -95,8 +95,38 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget && \
     find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > /opt/rootfs/prebuilt/arm/rootfs.cpio.gz && \
     rm -rf /tmp/busybox /tmp/rootfs-arm
 
-# RISC-V and x86_64 rootfs built similarly (simplified — reuse busybox source)
-RUN mkdir -p /opt/rootfs/prebuilt/{riscv,x86_64}
+# RISC-V rootfs
+COPY --from=toolchains /opt/toolchains/riscv-gcc13 /opt/toolchains/riscv-gcc13
+RUN mkdir -p /tmp/busybox && cd /tmp/busybox && \
+    wget -q https://busybox.net/downloads/busybox-1.36.1.tar.bz2 && \
+    tar xjf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1 && \
+    make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux- defconfig && \
+    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
+    make ARCH=riscv CROSS_COMPILE=/opt/toolchains/riscv-gcc13/bin/riscv64-linux- -j"$(nproc)" && \
+    mkdir -p /opt/rootfs/prebuilt/riscv /tmp/rootfs-riscv/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
+    cp busybox /tmp/rootfs-riscv/bin/busybox && \
+    cd /tmp/rootfs-riscv && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date; do \
+        ln -sf busybox bin/$cmd; done && \
+    for cmd in init halt reboot; do ln -sf ../bin/busybox sbin/$cmd; done && \
+    cp -a /tmp/rootfs-overlay/. /tmp/rootfs-riscv/ 2>/dev/null || true && \
+    find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > /opt/rootfs/prebuilt/riscv/rootfs.cpio.gz && \
+    rm -rf /tmp/busybox /tmp/rootfs-riscv
+
+# x86_64 rootfs (uses host gcc, no cross-compiler needed)
+RUN mkdir -p /tmp/busybox && cd /tmp/busybox && \
+    wget -q https://busybox.net/downloads/busybox-1.36.1.tar.bz2 && \
+    tar xjf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1 && \
+    make defconfig && \
+    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config && \
+    make -j"$(nproc)" && \
+    mkdir -p /opt/rootfs/prebuilt/x86_64 /tmp/rootfs-x86/{bin,sbin,etc/init.d,dev,proc,sys,tmp,root,usr/bin,usr/sbin,var,lib} && \
+    cp busybox /tmp/rootfs-x86/bin/busybox && \
+    cd /tmp/rootfs-x86 && for cmd in sh ls cat echo mount umount mkdir rm cp mv ps top kill sleep date; do \
+        ln -sf busybox bin/$cmd; done && \
+    for cmd in init halt reboot; do ln -sf ../bin/busybox sbin/$cmd; done && \
+    cp -a /tmp/rootfs-overlay/. /tmp/rootfs-x86/ 2>/dev/null || true && \
+    find . | fakeroot cpio -o -H newc 2>/dev/null | gzip > /opt/rootfs/prebuilt/x86_64/rootfs.cpio.gz && \
+    rm -rf /tmp/busybox /tmp/rootfs-x86
 
 # ==============================================================================
 # Stage 5: Final image

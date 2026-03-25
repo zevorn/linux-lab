@@ -35,8 +35,13 @@ check_file() {
 check_disk_space() {
     local required_mb="${1:-5120}"
     local dir="${2:-.}"
+    # Use parent dir if target doesn't exist yet
+    local check_dir="$dir"
+    while [ ! -d "$check_dir" ] && [ "$check_dir" != "/" ]; do
+        check_dir=$(dirname "$check_dir")
+    done
     local available_mb
-    available_mb=$(df -m "$dir" | awk 'NR==2 {print $4}')
+    available_mb=$(df -m "$check_dir" | awk 'NR==2 {print $4}')
     if [ "$available_mb" -lt "$required_mb" ]; then
         log_warn "Low disk space: ${available_mb}MB available, ${required_mb}MB recommended"
         log_warn "Run 'make disk-usage' to see breakdown, 'make clean' to free space"

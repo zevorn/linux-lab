@@ -2,6 +2,7 @@
 # Rootfs management: prepare prebuilt, build via Buildroot, inject modules
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/cnb-detect.sh"
 
 ACTION="${1:?Usage: rootfs.sh <prepare|build|rebuild|menuconfig|modules|clean>}"
 
