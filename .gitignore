@@ -1,1 +1,19 @@
 .humanize/
+
+# Source code (downloaded on demand)
+src/*
+!src/qemu/
+!src/buildroot/
+
+# Build artifacts
+output/
+
+# User local config
+.linux-lab.conf
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/

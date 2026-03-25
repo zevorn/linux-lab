@@ -1,0 +1,12 @@
+image: registry.cnb.cool/${CNB_OWNER}/linux-lab:latest
+resources:
+  cpu: 4
+  memory: 8Gi
+  disk: 50Gi
+ports:
+  - port: 1234
+    name: gdb
+    description: GDB debug port
+  - port: 2222
+    name: ssh
+    description: QEMU guest SSH

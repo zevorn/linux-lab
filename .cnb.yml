@@ -1,0 +1,30 @@
+main:
+  push:
+    - stages:
+        - name: build-image
+          image: docker:latest
+          script:
+            - docker build -t linux-lab:latest .
+            - docker tag linux-lab:latest registry.cnb.cool/${CNB_OWNER}/linux-lab:latest
+            - docker push registry.cnb.cool/${CNB_OWNER}/linux-lab:latest
+          when:
+            changes:
+              - Dockerfile
+              - toolchains/**
+              - rootfs/prebuilt/**
+              - rootfs/overlay/**
+              - rootfs/busybox.config
+
+        - name: test-image
+          needs: [build-image]
+          image: registry.cnb.cool/${CNB_OWNER}/linux-lab:latest
+          script:
+            # Verify toolchains
+            - arm-linux-gnueabihf-gcc --version
+            - riscv64-linux-gnu-gcc --version
+            # Verify QEMU
+            - qemu-system-arm --version
+            - qemu-system-riscv64 --version
+            - qemu-system-x86_64 --version
+            # Verify dialog
+            - dialog --version
