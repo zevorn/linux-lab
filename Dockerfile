@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     # Archive/download tools
     wget curl xz-utils tar cpio \
+    # QEMU runtime deps
+    libglib2.0-0 libpixman-1-0 libslirp0 \
     # Rootfs tools
     fakeroot \
     # Debug
