@@ -16,17 +16,12 @@ qemu_build() {
     local qemu_install_dir="$OUTPUT_DIR/qemu"
     ensure_dir "$qemu_build_dir"
 
-    # Ensure QEMU subprojects are available (keycodemapdb etc.)
-    local keycodemapdb="$QEMU_SRC/subprojects/keycodemapdb"
-    if [ -f "$QEMU_SRC/subprojects/keycodemapdb.wrap" ] && [ ! -f "$keycodemapdb/meson.build" ]; then
-        log_info "Fetching QEMU subproject: keycodemapdb..."
-        local kcm_url kcm_rev
-        kcm_url=$(grep '^url' "$QEMU_SRC/subprojects/keycodemapdb.wrap" | sed 's/.*= *//')
-        kcm_rev=$(grep '^revision' "$QEMU_SRC/subprojects/keycodemapdb.wrap" | sed 's/.*= *//')
-        git clone --depth=1 "$kcm_url" "$keycodemapdb" 2>/dev/null || true
-        if [ -n "$kcm_rev" ] && [ -d "$keycodemapdb/.git" ]; then
-            (cd "$keycodemapdb" && git fetch --depth=1 origin "$kcm_rev" && git checkout "$kcm_rev") 2>/dev/null || true
-        fi
+    # Initialize QEMU's own git submodules (keycodemapdb, etc.)
+    # This is the canonical way to get subprojects from a clean checkout.
+    if [ -e "$QEMU_SRC/.git" ]; then
+        log_info "Initializing QEMU internal submodules..."
+        (cd "$QEMU_SRC" && git submodule update --init) || \
+            log_warn "Could not init QEMU submodules (meson will try wrap download as fallback)"
     fi
 
     log_info "Configuring and building QEMU (this may take a while)..."

@@ -102,5 +102,26 @@ else
 fi
 
 echo ""
+echo "--- Checksum verification (requires network) ---"
+CHECKSUM_TEST_DIR=$(mktemp -d /tmp/linux-lab-checksum-test.XXXXXX)
+if wget -q --spider "https://mirrors.tuna.tsinghua.edu.cn/kernel/v6.x/linux-6.6.tar.xz" 2>/dev/null; then
+    # Positive test: download with correct checksum
+    export SRC_DIR="$CHECKSUM_TEST_DIR" KERNEL_SRC="$CHECKSUM_TEST_DIR/linux-6.6"
+    export KERNEL=6.6 KERNEL_GIT=0
+    export KERNEL_URL="https://mirrors.tuna.tsinghua.edu.cn/kernel/v6.x/linux-6.6.tar.xz"
+    export KERNEL_URL_ALT="https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.tar.xz"
+    export KERNEL_SHA256="d926a06c63dd8ac7df3f86ee1ffc2ce2a3b81a2d168484e76b5b389aba8e56d0"
+    check "kernel-download checksum verified" bash "$TOP_DIR/scripts/kernel.sh" download
+
+    # Negative test: wrong checksum must fail
+    rm -rf "$CHECKSUM_TEST_DIR/linux-6.6"
+    export KERNEL_SHA256="0000000000000000000000000000000000000000000000000000000000000000"
+    check_fail "kernel-download rejects wrong checksum" bash "$TOP_DIR/scripts/kernel.sh" download
+else
+    echo "  SKIP: checksum test requires network access to kernel mirrors"
+fi
+rm -rf "$CHECKSUM_TEST_DIR"
+
+echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
