@@ -9,7 +9,7 @@ main:
           script:
             - docker build -t linux-lab:latest .
             - docker tag linux-lab:latest registry.cnb.cool/gevico.online/linux-lab:latest
-            - docker push registry.cnb.cool/gevico.online/linux-lab:latest
+            - docker push registry.cnb.cool/gevico.online/linux-lab:latest || docker push registry.cnb.cool/gevico.online/linux-lab:latest || docker push registry.cnb.cool/gevico.online/linux-lab:latest
 
 # Cloud IDE: build image from Dockerfile, use cached result on subsequent opens
 $:
