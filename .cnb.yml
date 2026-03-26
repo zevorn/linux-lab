@@ -11,11 +11,11 @@ main:
             - docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
             - docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
 
-# Cloud IDE: build image from Dockerfile, use cached result on subsequent opens
+# Cloud IDE: use pre-built image from push pipeline
 $:
   vscode:
     - docker:
-        build: Dockerfile
+        image: docker.cnb.cool/gevico.online/linux-lab:latest
       services:
         - vscode
         - docker
