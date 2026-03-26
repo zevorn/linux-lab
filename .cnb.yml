@@ -1,16 +1,14 @@
 # Push pipeline: build and push Docker image on every push
 main:
   push:
-    - docker:
-        build: Dockerfile
-        image: registry.cnb.cool/gevico.online/linux-lab:latest
+    - services:
+        - docker
       stages:
-        - name: verify
-          image: registry.cnb.cool/gevico.online/linux-lab:latest
+        - name: build-and-push-image
+          image: docker:latest
           script:
-            - qemu-system-arm --version
-            - qemu-system-riscv64 --version
-            - qemu-system-x86_64 --version
+            - docker build -t docker.cnb.cool/gevico.online/linux-lab:latest .
+            - docker push docker.cnb.cool/gevico.online/linux-lab:latest
 
 # Cloud IDE: build image from Dockerfile, use cached result on subsequent opens
 $:
