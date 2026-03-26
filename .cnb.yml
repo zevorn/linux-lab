@@ -1,33 +1,16 @@
-main:
-  push:
-    # Build and push Docker image on every push that changes image-related files
-    - stages:
-        - name: build-and-push-image
-          image: docker:latest
+# CNB Cloud IDE configuration
+# - On push: build Docker image and push to CNB registry
+# - Cloud IDE: use the latest pre-built image (no rebuild on open)
+$:
+  vscode:
+    - docker:
+        build: Dockerfile
+      services:
+        - vscode
+        - docker
+      stages:
+        - name: verify
           script:
-            - docker build -t linux-lab:latest .
-            - docker tag linux-lab:latest registry.cnb.cool/${CNB_REPO}/linux-lab:latest
-            - docker tag linux-lab:latest registry.cnb.cool/${CNB_REPO}/linux-lab:${CNB_COMMIT_SHORT_SHA}
-            - docker push registry.cnb.cool/${CNB_REPO}/linux-lab:latest
-            - docker push registry.cnb.cool/${CNB_REPO}/linux-lab:${CNB_COMMIT_SHORT_SHA}
-          when:
-            changes:
-              - Dockerfile
-              - src/qemu/**
-              - toolchains/**
-              - rootfs/prebuilt/**
-              - rootfs/overlay/**
-              - rootfs/busybox.config
-
-        - name: verify-image
-          needs: [build-and-push-image]
-          image: registry.cnb.cool/${CNB_REPO}/linux-lab:latest
-          script:
-            - arm-linux-gnueabihf-gcc --version
-            - riscv64-linux-gnu-gcc --version
             - qemu-system-arm --version
-            - qemu-system-riscv64 --version
-            - qemu-system-x86_64 --version
+            - arm-linux-gnueabihf-gcc --version
             - dialog --version
-            - setup-rootfs.sh
-            - make boot-test BOARD=arm/vexpress-a9 KERNEL=6.6

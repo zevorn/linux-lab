@@ -1,4 +1,3 @@
-image: registry.cnb.cool/${CNB_REPO}/linux-lab:latest
 resources:
   cpu: 4
   memory: 8Gi
