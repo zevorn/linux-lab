@@ -1,46 +1,17 @@
 # Linux Lab — Docker image for CNB Cloud IDE
-# Provides cross-compilation toolchains, QEMU, and development tools
+# Based on CNB default dev environment (includes code-server, git, etc.)
 
 # ==============================================================================
-# Stage 1: Base development tools + cross-compilers
+# Stage 1: QEMU from source (build in separate stage to cache)
 # ==============================================================================
-FROM ubuntu:24.04 AS base
+FROM cnbcool/default-dev-env:latest AS qemu-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Build essentials
-    build-essential gcc g++ make cmake ninja-build \
-    # Kernel build deps
-    flex bison bc libssl-dev libelf-dev libncurses-dev \
-    # Cross-compilers (from Ubuntu apt — fast, no external download)
-    gcc-arm-linux-gnueabihf \
-    gcc-riscv64-linux-gnu \
-    # Version control
-    git \
-    # Archive/download tools
-    wget curl xz-utils tar cpio \
-    # QEMU runtime deps
-    libglib2.0-0 libpixman-1-0 libslirp0 \
-    # Rootfs tools
-    fakeroot \
-    # Debug
-    gdb-multiarch \
-    # Python (for kernel scripts)
-    python3 python3-pip \
-    # TUI
-    dialog \
-    # Misc
-    file rsync \
-    && rm -rf /var/lib/apt/lists/*
-
-# ==============================================================================
-# Stage 2: QEMU from source
-# ==============================================================================
-FROM base AS qemu-builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config libglib2.0-dev libpixman-1-dev libslirp-dev \
+    build-essential pkg-config python3 python3-pip ninja-build \
+    libglib2.0-dev libpixman-1-dev libslirp-dev \
+    wget xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 ARG QEMU_VERSION=10.2.2
@@ -57,22 +28,38 @@ RUN wget --no-check-certificate --progress=dot:mega -t 3 "https://download.qemu.
     && rm -rf /tmp/qemu-${QEMU_VERSION} /tmp/qemu-build /tmp/qemu-${QEMU_VERSION}.tar.xz
 
 # ==============================================================================
-# Stage 3: Prebuilt rootfs (repo-committed images)
+# Stage 2: Final image
 # ==============================================================================
-FROM base AS rootfs-builder
+FROM cnbcool/default-dev-env:latest
 
-COPY rootfs/prebuilt /opt/rootfs/prebuilt
+ENV DEBIAN_FRONTEND=noninteractive
 
-# ==============================================================================
-# Stage 4: Final image
-# ==============================================================================
-FROM base AS final
+# Install linux-lab specific tools + cross-compilers
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials
+    build-essential gcc g++ make cmake ninja-build \
+    # Kernel build deps
+    flex bison bc libssl-dev libelf-dev libncurses-dev \
+    # Cross-compilers (from Ubuntu apt — fast)
+    gcc-arm-linux-gnueabihf \
+    gcc-riscv64-linux-gnu \
+    # QEMU runtime deps
+    libglib2.0-0 libpixman-1-0 libslirp0 \
+    # Rootfs tools
+    fakeroot cpio \
+    # Debug
+    gdb-multiarch \
+    # TUI
+    dialog \
+    # Misc
+    file rsync \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy QEMU from builder
+# Copy QEMU from builder stage
 COPY --from=qemu-builder /tmp/qemu-install/usr/local /usr/local
 
-# Copy prebuilt rootfs
-COPY --from=rootfs-builder /opt/rootfs /opt/rootfs
+# Copy prebuilt rootfs images
+COPY rootfs/prebuilt /opt/rootfs/prebuilt
 
 # Verify installations
 RUN qemu-system-arm --version && \
