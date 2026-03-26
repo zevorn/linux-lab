@@ -7,8 +7,8 @@ main:
         - name: build-and-push-image
           image: docker:latest
           script:
-            - docker build -t docker.cnb.cool/gevico.online/linux-lab:latest .
-            - docker push docker.cnb.cool/gevico.online/linux-lab:latest
+            - docker build -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest .
+            - docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
 
 # Cloud IDE: build image from Dockerfile, use cached result on subsequent opens
 $:
