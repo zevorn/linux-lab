@@ -194,13 +194,21 @@ distclean: clean
 	@echo "Done."
 
 # ==============================================================================
-# Submodule management (QEMU and Buildroot are git submodules)
+# Source management (QEMU and Buildroot cloned on demand)
 # ==============================================================================
+QEMU_REPO     ?= https://gitlab.com/qemu-project/qemu.git
+QEMU_TAG      ?= v9.2.0
+BUILDROOT_REPO ?= https://github.com/buildroot/buildroot.git
+BUILDROOT_TAG  ?= 2024.02
+
 check-submodules:
-	@if [ ! -f "$(QEMU_SRC)/configure" ] || [ ! -f "$(BUILDROOT_SRC)/Makefile" ]; then \
-		echo "Initializing submodules (QEMU + Buildroot)..."; \
-		git submodule update --init --depth=1 src/qemu src/buildroot || \
-			{ echo "ERROR: Failed to initialize submodules. Run: git submodule update --init src/qemu src/buildroot"; exit 1; }; \
+	@if [ ! -f "$(QEMU_SRC)/configure" ]; then \
+		echo "Cloning QEMU $(QEMU_TAG)..."; \
+		git clone --branch $(QEMU_TAG) --depth=1 $(QEMU_REPO) $(QEMU_SRC); \
+	fi
+	@if [ ! -f "$(BUILDROOT_SRC)/Makefile" ]; then \
+		echo "Cloning Buildroot $(BUILDROOT_TAG)..."; \
+		git clone --branch $(BUILDROOT_TAG) --depth=1 $(BUILDROOT_REPO) $(BUILDROOT_SRC); \
 	fi
 
 # ==============================================================================

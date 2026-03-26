@@ -40,16 +40,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libglib2.0-dev libpixman-1-dev libslirp-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Build QEMU from repo-pinned submodule source (not upstream tarball)
-COPY src/qemu /tmp/qemu-src
-WORKDIR /tmp/qemu-build
-RUN /tmp/qemu-src/configure \
+# Download and build QEMU release tarball (self-contained, no submodules needed)
+ARG QEMU_VERSION=9.2.0
+WORKDIR /tmp
+RUN wget --progress=dot:giga "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
+    && tar xJf qemu-${QEMU_VERSION}.tar.xz \
+    && mkdir -p /tmp/qemu-build && cd /tmp/qemu-build \
+    && /tmp/qemu-${QEMU_VERSION}/configure \
         --prefix=/usr/local \
         --target-list=arm-softmmu,riscv64-softmmu,x86_64-softmmu \
         --disable-werror \
     && make -j"$(nproc)" \
     && make install DESTDIR=/tmp/qemu-install \
-    && rm -rf /tmp/qemu-src /tmp/qemu-build
+    && rm -rf /tmp/qemu-${QEMU_VERSION} /tmp/qemu-build /tmp/qemu-${QEMU_VERSION}.tar.xz
 
 # ==============================================================================
 # Stage 3: Toolchains

@@ -1,9 +1,0 @@
-[submodule "src/qemu"]
-	path = src/qemu
-	url = https://gitlab.com/qemu-project/qemu.git
-	fetchRecurseSubmodules = false
-	shallow = true
-[submodule "src/buildroot"]
-	path = src/buildroot
-	url = https://github.com/buildroot/buildroot.git
-	shallow = true
