@@ -1,6 +1,17 @@
-# CNB Cloud IDE configuration
-# - On push: build Docker image and push to CNB registry
-# - Cloud IDE: use the latest pre-built image (no rebuild on open)
+# Push pipeline: build and push Docker image on every push
+main:
+  push:
+    - services:
+        - docker
+      stages:
+        - name: build-and-push-image
+          image: docker:latest
+          script:
+            - docker build -t linux-lab:latest .
+            - docker tag linux-lab:latest registry.cnb.cool/${CNB_OWNER}/linux-lab:latest
+            - docker push registry.cnb.cool/${CNB_OWNER}/linux-lab:latest
+
+# Cloud IDE: build image from Dockerfile, use cached result on subsequent opens
 $:
   vscode:
     - docker:
