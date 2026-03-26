@@ -41,9 +41,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and build QEMU release tarball (self-contained, no submodules needed)
-ARG QEMU_VERSION=9.2.0
+ARG QEMU_VERSION=11.0.0
 WORKDIR /tmp
-RUN wget --progress=dot:giga "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
+RUN wget --progress=dot:mega "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
     && tar xJf qemu-${QEMU_VERSION}.tar.xz \
     && mkdir -p /tmp/qemu-build && cd /tmp/qemu-build \
     && /tmp/qemu-${QEMU_VERSION}/configure \
@@ -63,7 +63,7 @@ FROM base AS toolchains
 # Download to file first (pipe from wget can break on slow networks)
 # Bootlin prefix is arm-buildroot-linux-gnueabihf-; create symlinks for arm-linux-gnueabihf-
 RUN mkdir -p /opt/toolchains/arm-gcc13 \
-    && wget --progress=dot:giga "https://toolchains.bootlin.com/downloads/releases/toolchains/armv7-eabihf/tarballs/armv7-eabihf--glibc--stable-2024.05-1.tar.xz" \
+    && wget --progress=dot:mega "https://toolchains.bootlin.com/downloads/releases/toolchains/armv7-eabihf/tarballs/armv7-eabihf--glibc--stable-2024.05-1.tar.xz" \
        -O /tmp/arm-tc.tar.xz \
     && tar xJf /tmp/arm-tc.tar.xz -C /opt/toolchains/arm-gcc13 --strip-components=1 \
     && rm -f /tmp/arm-tc.tar.xz \
@@ -75,7 +75,7 @@ RUN mkdir -p /opt/toolchains/arm-gcc13 \
 # RISC-V toolchain (Bootlin, glibc, gcc-13)
 # Bootlin prefix is riscv64-buildroot-linux-gnu-; create symlinks for riscv64-linux-gnu-
 RUN mkdir -p /opt/toolchains/riscv-gcc13 \
-    && wget --progress=dot:giga "https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.05-1.tar.xz" \
+    && wget --progress=dot:mega "https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.05-1.tar.xz" \
        -O /tmp/riscv-tc.tar.xz \
     && tar xJf /tmp/riscv-tc.tar.xz -C /opt/toolchains/riscv-gcc13 --strip-components=1 \
     && rm -f /tmp/riscv-tc.tar.xz \

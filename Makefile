@@ -85,7 +85,7 @@ export ROOTFS_TYPE ROOTFS_PREBUILT ROOTFS_SRC ROOTFS_IMAGE ROOTFS_APPEND
 export ROOTFS_BUILDROOT_DEFCONFIG BUILDROOT_SRC
 export GDB_PORT GDB_ARCH
 export JOBS
-QEMU_VERSION ?= 9.2.0
+QEMU_VERSION ?= 11.0.0
 export QEMU_VERSION
 
 # ==============================================================================
@@ -197,7 +197,7 @@ distclean: clean
 # Source management (QEMU and Buildroot cloned on demand)
 # ==============================================================================
 QEMU_REPO     ?= https://gitlab.com/qemu-project/qemu.git
-QEMU_TAG      ?= v9.2.0
+QEMU_TAG      ?= v11.0.0
 BUILDROOT_REPO ?= https://github.com/buildroot/buildroot.git
 BUILDROOT_TAG  ?= 2024.02
 
