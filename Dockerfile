@@ -45,7 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ARG QEMU_VERSION=10.2.2
 WORKDIR /tmp
-RUN wget --progress=dot:mega "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
+RUN wget --no-check-certificate --progress=dot:mega -t 3 "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
     && tar xJf qemu-${QEMU_VERSION}.tar.xz \
     && mkdir -p /tmp/qemu-build && cd /tmp/qemu-build \
     && /tmp/qemu-${QEMU_VERSION}/configure \
