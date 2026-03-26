@@ -14,7 +14,7 @@ jobs:
             - name: Sync to CNB Repository
               uses: docker://tencentcom/git-sync
               env:
-                  PLUGIN_TARGET_URL: "https://cnb.cool/gevico.online/linux-lab/linux-lab.git"
+                  PLUGIN_TARGET_URL: "https://cnb.cool/gevico.online/linux-lab.git"
                   PLUGIN_AUTH_TYPE: "https"
                   PLUGIN_USERNAME: "cnb"
                   PLUGIN_PASSWORD: ${{ secrets.GIT_PASSWORD }}
