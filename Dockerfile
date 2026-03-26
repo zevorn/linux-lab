@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and build QEMU release tarball (self-contained, no submodules needed)
-ARG QEMU_VERSION=11.0.0
+ARG QEMU_VERSION=10.2.2
 WORKDIR /tmp
 RUN wget --progress=dot:mega "https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz" \
     && tar xJf qemu-${QEMU_VERSION}.tar.xz \
