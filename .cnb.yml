@@ -11,17 +11,18 @@ main:
             - docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
             - docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
 
-# Cloud IDE: use pre-built image from push pipeline
+# Cloud IDE: use pre-built image, skip submodule clone (saves ~9min)
 $:
   vscode:
     - docker:
         image: docker.cnb.cool/gevico.online/linux-lab:latest
+      env:
+        GIT_SUBMODULE_STRATEGY: none
       services:
         - vscode
         - docker
       stages:
-        - name: verify
+        - name: setup
           script:
-            - qemu-system-arm --version
-            - arm-linux-gnueabihf-gcc --version
-            - dialog --version
+            - setup-rootfs.sh
+            - echo "Linux Lab environment ready. Run 'make help' to get started."
