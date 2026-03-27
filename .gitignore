@@ -7,6 +7,33 @@ src/*
 # Build artifacts
 output/
 
+# Binary / object files
+*.o
+*.ko
+*.obj
+*.elf
+*.bin
+*.img
+*.a
+*.so
+*.so.*
+*.dylib
+
+# Kernel build artifacts
+vmlinux
+vmlinuz
+zImage
+bzImage
+Image
+Image.gz
+System.map
+Module.symvers
+modules.order
+
+# Compressed archives (except prebuilt rootfs)
+# *.tar.*
+# *.zip
+
 # User local config
 .linux-lab.conf
 
@@ -16,3 +43,7 @@ output/
 *~
 .vscode/
 .idea/
+
+# OS files
+.DS_Store
+Thumbs.db
