@@ -1,4 +1,4 @@
 ::sysinit:/etc/init.d/rcS
-::respawn:/sbin/getty -L console 0 vt100
+::respawn:-/bin/sh
 ::ctrlaltdel:/sbin/reboot
 ::shutdown:/bin/umount -a -r

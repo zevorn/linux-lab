@@ -37,7 +37,7 @@ This command automatically performs the following steps:
 
 By default, it boots the ARM vexpress-a9 board with Linux 6.6 kernel.
 
-After boot, you will see a welcome message and a login prompt (`linux-lab login:`). Type `root` and press Enter to log in (no password required).
+After boot, you will see `Welcome to Linux Lab minimal rootfs` and a `~ #` shell prompt. You are dropped directly into a root shell without login.
 
 To exit QEMU: press `Ctrl-A` then `X`.
 

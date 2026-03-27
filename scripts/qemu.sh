@@ -238,7 +238,7 @@ qemu_boot_test() {
     qemu_assemble_cmd
 
     local timeout=120
-    log_info "Smoke test: booting $BOARD, waiting for login prompt (${timeout}s timeout)..."
+    log_info "Smoke test: booting $BOARD, waiting for shell ready (${timeout}s timeout)..."
 
     local test_log
     test_log=$(mktemp /tmp/qemu-boot-test.XXXXXX.log)
@@ -254,8 +254,8 @@ qemu_boot_test() {
         # Check if QEMU process exited early (startup failure)
         if ! kill -0 $qemu_pid 2>/dev/null; then
             wait $qemu_pid 2>/dev/null || true
-            if grep -q "login:" "$test_log" 2>/dev/null; then
-                log_ok "Boot test PASSED — login prompt appeared in ${elapsed}s"
+            if grep -qE "(~ #|/ #|Welcome to Linux Lab)" "$test_log" 2>/dev/null; then
+                log_ok "Boot test PASSED — system ready in ${elapsed}s"
                 rm -f "$test_log"
                 return 0
             fi
@@ -265,11 +265,11 @@ qemu_boot_test() {
             rm -f "$test_log"
             return 1
         fi
-        # Detect login prompt (the canonical boot-test success signal per plan)
-        if grep -q "login:" "$test_log" 2>/dev/null; then
+        # Detect shell ready (busybox drops directly to shell, no login)
+        if grep -qE "(~ #|/ #|Welcome to Linux Lab)" "$test_log" 2>/dev/null; then
             kill -- -$qemu_pid 2>/dev/null || kill $qemu_pid 2>/dev/null || true
             wait $qemu_pid 2>/dev/null || true
-            log_ok "Boot test PASSED — login prompt appeared in ${elapsed}s"
+            log_ok "Boot test PASSED — system ready in ${elapsed}s"
             rm -f "$test_log"
             return 0
         fi
@@ -288,7 +288,7 @@ qemu_boot_test() {
 
     kill -- -$qemu_pid 2>/dev/null || kill $qemu_pid 2>/dev/null || true
     wait $qemu_pid 2>/dev/null || true
-    log_error "Boot test FAILED — no login prompt after ${timeout}s"
+    log_error "Boot test FAILED — system not ready after ${timeout}s"
     log_error "Last 20 lines of output:"
     tail -20 "$test_log" >&2
     rm -f "$test_log"
